@@ -2852,7 +2852,7 @@ public class LocalExecutionPlanner
 
         private Set<DynamicFilterId> getCoordinatorDynamicFilters(Set<DynamicFilterId> dynamicFilters, PlanNode node, TaskId taskId)
         {
-            if (!isBuildSideReplicated(node) || taskId.getId() == 0) {
+            if (!isBuildSideReplicated(node) || taskId.getPartitionId() == 0) {
                 // replicated dynamic filters are collected by single stage task only
                 return dynamicFilters;
             }

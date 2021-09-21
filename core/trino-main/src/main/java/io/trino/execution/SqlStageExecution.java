@@ -219,7 +219,7 @@ public final class SqlStageExecution
             return Optional.empty();
         }
 
-        TaskId taskId = new TaskId(stateMachine.getStageId(), partition);
+        TaskId taskId = new TaskId(stateMachine.getStageId(), partition, 0);
         checkArgument(!tasks.containsKey(taskId), "A task with id %s already exists", taskId);
 
         stateMachine.transitionToScheduling();

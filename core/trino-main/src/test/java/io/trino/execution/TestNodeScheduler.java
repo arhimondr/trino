@@ -204,7 +204,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments.keySet()) {
-            TaskId taskId = new TaskId("test", 1, task);
+            TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             remoteTask.startSplits(25);
@@ -321,11 +321,11 @@ public class TestNodeScheduler
 
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         // Max out number of splits on node
-        TaskId taskId1 = new TaskId("test", 1, 1);
+        TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId1));
         nodeTaskMap.addTask(newNode, remoteTask1);
 
-        TaskId taskId2 = new TaskId("test", 1, 2);
+        TaskId taskId2 = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(taskId2, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId2));
         nodeTaskMap.addTask(newNode, remoteTask2);
 
@@ -380,13 +380,13 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of splits on node
-            TaskId taskId = new TaskId("test", 1, 1);
+            TaskId taskId = new TaskId(new StageId("test", 1), 1, 0);
             RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
             tasks.add(remoteTask);
         }
 
-        TaskId taskId = new TaskId("test", 1, 2);
+        TaskId taskId = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask newRemoteTask = remoteTaskFactory.createTableScanTask(taskId, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId));
         // Max out pending splits on new node
         taskMap.put(newNode, newRemoteTask);
@@ -417,7 +417,7 @@ public class TestNodeScheduler
         setUpNodes();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
-        TaskId taskId = new TaskId("test", 1, 1);
+        TaskId taskId = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
                 chosenNode,
@@ -440,7 +440,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
-        TaskId taskId1 = new TaskId("test", 1, 1);
+        TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
                 chosenNode,
                 ImmutableList.of(
@@ -448,7 +448,7 @@ public class TestNodeScheduler
                         new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId("test", 1, 2);
+        TaskId taskId2 = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
@@ -776,7 +776,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments1.keySet()) {
-            TaskId taskId = new TaskId("test", 1, task);
+            TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments1.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             remoteTask.startSplits(20);
@@ -817,7 +817,7 @@ public class TestNodeScheduler
         int counter = 1;
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of unacknowledged splits on each task
-            TaskId taskId = new TaskId("test", 1, counter);
+            TaskId taskId = new TaskId(new StageId("test", 1), counter, 0);
             counter++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);

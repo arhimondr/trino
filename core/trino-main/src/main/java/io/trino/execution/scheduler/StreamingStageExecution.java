@@ -314,7 +314,7 @@ public class StreamingStageExecution
         parent.addSourceTask(stageExecution.getFragment().getId(), task);
 
         // update output buffers
-        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getId());
+        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
         for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
             OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
             outputBufferManager.addOutputBuffer(outputBufferId);
@@ -481,7 +481,7 @@ public class StreamingStageExecution
     {
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
-        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getId())).build();
+        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
         return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(splitLocation), Lifespan.taskWide());
     }
 
