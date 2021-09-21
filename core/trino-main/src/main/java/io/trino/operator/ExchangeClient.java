@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageCodecMarker;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
@@ -146,7 +147,7 @@ public class ExchangeClient
         }
     }
 
-    public synchronized void addLocation(URI location)
+    public synchronized void addLocation(TaskId taskId, URI location)
     {
         requireNonNull(location, "location is null");
 
@@ -170,6 +171,7 @@ public class ExchangeClient
                 maxResponseSize,
                 maxErrorDuration,
                 acknowledgePages,
+                taskId,
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
