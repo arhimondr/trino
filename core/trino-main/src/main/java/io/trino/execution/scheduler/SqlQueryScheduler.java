@@ -16,7 +16,6 @@ package io.trino.execution.scheduler;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.graph.Traverser;
@@ -38,6 +37,7 @@ import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStageExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
+import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
@@ -294,16 +294,18 @@ public class SqlQueryScheduler
                 @Override
                 public void addSourceTask(PlanFragmentId fragmentId, RemoteTask task)
                 {
-                    Set<URI> bufferLocations = ImmutableSet.of(uriBuilderFrom(task.getTaskStatus().getSelf())
-                            .appendPath("results")
-                            .appendPath("0").build());
+                    Map<TaskId, URI> bufferLocations = ImmutableMap.of(
+                            task.getTaskId(),
+                            uriBuilderFrom(task.getTaskStatus().getSelf())
+                                    .appendPath("results")
+                                    .appendPath("0").build());
                     queryStateMachine.updateOutputLocations(bufferLocations, false);
                 }
 
                 @Override
                 public void noMoreSourceTasks(PlanFragmentId fragmentId)
                 {
-                    queryStateMachine.updateOutputLocations(ImmutableSet.of(), true);
+                    queryStateMachine.updateOutputLocations(ImmutableMap.of(), true);
                 }
             });
             scheduler.set(streamingScheduler);

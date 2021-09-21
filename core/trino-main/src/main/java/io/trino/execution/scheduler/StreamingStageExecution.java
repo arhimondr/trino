@@ -482,7 +482,7 @@ public class StreamingStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(splitLocation), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation), Lifespan.taskWide());
     }
 
     public enum State
