@@ -289,6 +289,9 @@ public class SqlQueryScheduler
             if (queryStateMachine.isDone()) {
                 return;
             }
+            queryStateMachine.addOutputTaskFailureListener((taskId, failure) -> {
+                // TODO
+            });
             StreamingScheduler streamingScheduler = createStreamingScheduler(new ResultsConsumer()
             {
                 @Override

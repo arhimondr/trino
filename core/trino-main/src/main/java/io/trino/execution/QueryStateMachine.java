@@ -58,6 +58,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -644,6 +645,16 @@ public class QueryStateMachine
         outputManager.addOutputInfoListener(listener);
     }
 
+    public void addOutputTaskFailureListener(TaskFailureListener listener)
+    {
+        outputManager.addOutputTaskFailureListener(listener);
+    }
+
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        outputManager.outputTaskFailed(taskId, failure);
+    }
+
     public void setColumns(List<String> columnNames, List<Type> columnTypes)
     {
         outputManager.setColumns(columnNames, columnTypes);
@@ -1191,6 +1202,12 @@ public class QueryStateMachine
         @GuardedBy("this")
         private boolean noMoreExchangeLocations;
 
+        private final Object lock = new Object();
+        @GuardedBy("lock")
+        private final Map<TaskId, Throwable> outputTaskFailures = new HashMap<>();
+        @GuardedBy("lock")
+        private final List<TaskFailureListener> outputTaskFailureListeners = new ArrayList<>();
+
         public QueryOutputManager(Executor executor)
         {
             this.executor = requireNonNull(executor, "executor is null");
@@ -1245,6 +1262,32 @@ public class QueryStateMachine
                 outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
             }
             queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+        }
+
+        public void addOutputTaskFailureListener(TaskFailureListener listener)
+        {
+            Map<TaskId, Throwable> failures;
+            synchronized (lock) {
+                outputTaskFailureListeners.add(listener);
+                failures = ImmutableMap.copyOf(outputTaskFailures);
+            }
+            executor.execute(() -> {
+                failures.forEach(listener::onTaskFailed);
+            });
+        }
+
+        public void outputTaskFailed(TaskId taskId, Throwable failure)
+        {
+            List<TaskFailureListener> listeners;
+            synchronized (lock) {
+                outputTaskFailures.putIfAbsent(taskId, failure);
+                listeners = ImmutableList.copyOf(outputTaskFailureListeners);
+            }
+            executor.execute(() -> {
+                for (TaskFailureListener listener : listeners) {
+                    listener.onTaskFailed(taskId, failure);
+                }
+            });
         }
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
