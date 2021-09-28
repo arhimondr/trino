@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -1099,6 +1100,9 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
+        if (getRetryPolicy(session) != RetryPolicy.NONE) {
+            throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
+        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
