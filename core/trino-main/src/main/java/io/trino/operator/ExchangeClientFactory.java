@@ -18,6 +18,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
@@ -122,7 +123,7 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
+    public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener)
     {
         return new ExchangeClient(
                 nodeInfo.getExternalAddress(),
@@ -135,6 +136,7 @@ public class ExchangeClientFactory
                 httpClient,
                 scheduler,
                 systemMemoryContext,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                taskFailureListener);
     }
 }
