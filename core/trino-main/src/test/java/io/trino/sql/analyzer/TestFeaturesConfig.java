@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -114,7 +115,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(false));
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
+                .setRetryPolicy(RetryPolicy.NONE));
     }
 
     @Test
@@ -194,6 +196,7 @@ public class TestFeaturesConfig
                 .put("optimizer.merge-project-with-values", "false")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
+                .put("retry-policy", "QUERY")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -269,7 +272,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(true);
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
+                .setRetryPolicy(RetryPolicy.QUERY);
         assertFullMapping(properties, expected);
     }
 }

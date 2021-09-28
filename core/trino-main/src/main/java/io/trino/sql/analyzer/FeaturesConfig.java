@@ -23,6 +23,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.trino.operator.RetryPolicy;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -142,6 +143,8 @@ public class FeaturesConfig
 
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
+
+    private RetryPolicy retryPolicy = RetryPolicy.NONE;
 
     public enum JoinReorderingStrategy
     {
@@ -1101,6 +1104,19 @@ public class FeaturesConfig
     public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
     {
         this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
+        return this;
+    }
+
+    @NotNull
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
+    }
+
+    @Config("retry-policy")
+    public FeaturesConfig setRetryPolicy(RetryPolicy retryPolicy)
+    {
+        this.retryPolicy = retryPolicy;
         return this;
     }
 }
