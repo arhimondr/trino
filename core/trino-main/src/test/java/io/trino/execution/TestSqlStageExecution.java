@@ -22,6 +22,7 @@ import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.InternalNode;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Partitioning;
@@ -167,7 +168,8 @@ public class TestSqlStageExecution
                 ImmutableList.of(new PlanFragmentId("source")),
                 ImmutableList.of(new Symbol("column")),
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                RetryPolicy.NONE);
 
         ImmutableMap.Builder<Symbol, Type> types = ImmutableMap.builder();
         for (Symbol symbol : planNode.getOutputSymbols()) {
