@@ -25,6 +25,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -68,6 +69,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -370,7 +372,13 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputSymbols(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(
+                    exchange.getId(),
+                    childrenIds,
+                    exchange.getOutputSymbols(),
+                    exchange.getOrderingScheme(),
+                    exchange.getType(),
+                    context.get().getPartitioningHandle().isCoordinatorOnly() ? getRetryPolicy(session) : RetryPolicy.NONE);
         }
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)

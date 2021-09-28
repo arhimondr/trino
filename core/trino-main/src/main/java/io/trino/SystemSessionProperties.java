@@ -22,6 +22,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -38,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -143,6 +145,7 @@ public final class SystemSessionProperties
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String RETRY_POLICY = "retry_policy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -660,7 +663,13 @@ public final class SystemSessionProperties
                         LEGACY_CATALOG_ROLES,
                         "Enable legacy role management syntax that assumed all roles are catalog scoped",
                         featuresConfig.isLegacyCatalogRoles(),
-                        true));
+                        true),
+                enumProperty(
+                        RETRY_POLICY,
+                        "Retry policy",
+                        RetryPolicy.class,
+                        featuresConfig.getRetryPolicy(),
+                        false));
     }
 
     @Override
@@ -1172,5 +1181,19 @@ public final class SystemSessionProperties
     public static boolean isLegacyCatalogRoles(Session session)
     {
         return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
+    }
+
+    public static RetryPolicy getRetryPolicy(Session session)
+    {
+        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
+        if (retryPolicy != RetryPolicy.NONE) {
+            if (isEnableDynamicFiltering(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
+            }
+            if (isDistributedSortEnabled(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
+            }
+        }
+        return retryPolicy;
     }
 }
