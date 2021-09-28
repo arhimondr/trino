@@ -501,6 +501,9 @@ public class TestDirectExchangeClient
         Set<TaskId> failedTasks = newConcurrentHashSet();
         CountDownLatch latch = new CountDownLatch(2);
 
+        Set<TaskId> failedTasks = newConcurrentHashSet();
+        CountDownLatch latch = new CountDownLatch(2);
+
         @SuppressWarnings("resource")
         DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
