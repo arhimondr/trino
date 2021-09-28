@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -114,7 +115,8 @@ public class TestFeaturesConfig
                 .setUseTableScanNodePartitioning(true)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
-                .setLegacyCatalogRoles(false));
+                .setLegacyCatalogRoles(false)
+                .setRetryPolicy(RetryPolicy.NONE));
     }
 
     @Test
@@ -194,6 +196,7 @@ public class TestFeaturesConfig
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
                 .put("deprecated.legacy-catalog-roles", "true")
+                .put("retry-policy", "QUERY")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -269,7 +272,8 @@ public class TestFeaturesConfig
                 .setUseTableScanNodePartitioning(false)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
-                .setLegacyCatalogRoles(true);
+                .setLegacyCatalogRoles(true)
+                .setRetryPolicy(RetryPolicy.QUERY);
         assertFullMapping(properties, expected);
     }
 }

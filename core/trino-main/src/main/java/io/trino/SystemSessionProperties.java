@@ -22,6 +22,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -143,6 +144,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
+    public static final String RETRY_POLICY = "retry_policy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -660,7 +662,13 @@ public final class SystemSessionProperties
                                 getTimeZoneKey(value);
                             }
                         },
-                        true));
+                        true),
+                enumProperty(
+                        RETRY_POLICY,
+                        "Retry policy",
+                        RetryPolicy.class,
+                        featuresConfig.getRetryPolicy(),
+                        false));
     }
 
     @Override
@@ -1172,5 +1180,10 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static RetryPolicy getRetryPolicy(Session session)
+    {
+        return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
     }
 }
