@@ -88,6 +88,7 @@ import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -255,6 +256,7 @@ public class CoordinatorModule
         newExporter(binder).export(QueryExecutionMBean.class)
                 .as(generator -> generator.generatedNameOf(QueryExecution.class));
 
+        binder.bind(SplitSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
 
