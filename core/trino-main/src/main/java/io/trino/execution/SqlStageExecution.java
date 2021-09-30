@@ -126,26 +126,17 @@ public final class SqlStageExecution
         return stateMachine.getStageId();
     }
 
-    public synchronized boolean transitionToFinished()
+    public synchronized void finish()
     {
-        abortRunningTasks();
-        return stateMachine.transitionToFinished();
+        stateMachine.transitionToFinished();
+        tasks.values().forEach(RemoteTask::cancel);
     }
 
-    public synchronized boolean transitionToFailed(Throwable throwable)
+    public synchronized void fail(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
-        abortRunningTasks();
-        return stateMachine.transitionToFailed(throwable);
-    }
-
-    private synchronized void abortRunningTasks()
-    {
-        for (RemoteTask task : tasks.values()) {
-            if (!task.getTaskStatus().getState().isDone()) {
-                task.abort();
-            }
-        }
+        stateMachine.transitionToFailed(throwable);
+        tasks.values().forEach(RemoteTask::abort);
     }
 
     /**

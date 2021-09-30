@@ -85,7 +85,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
-import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
@@ -507,7 +506,7 @@ public class SqlQueryExecution
                 rootFragment.getTypes());
 
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = createSqlQueryScheduler(
+        SqlQueryScheduler scheduler = new SqlQueryScheduler(
                 stateMachine,
                 plan.getRoot(),
                 nodePartitioningManager,

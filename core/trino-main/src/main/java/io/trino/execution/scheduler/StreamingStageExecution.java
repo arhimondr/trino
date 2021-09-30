@@ -344,6 +344,10 @@ public class StreamingStageExecution
                         .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 stateMachine.transitionToFailed(failure);
                 break;
+            case CANCELED:
+                // A task should only be in the canceled state if the STAGE is cancelled
+                stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the CANCELED state but stage is " + stageState));
+                break;
             case ABORTED:
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                 stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
