@@ -146,6 +146,8 @@ public final class SystemSessionProperties
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String RETRY_POLICY = "retry_policy";
+    public static final String RETRY_ATTEMPTS = "retry_attempts";
+    public static final String RETRY_DELAY = "retry_delay";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -669,6 +671,16 @@ public final class SystemSessionProperties
                         "Retry policy",
                         RetryPolicy.class,
                         featuresConfig.getRetryPolicy(),
+                        false),
+                integerProperty(
+                        RETRY_ATTEMPTS,
+                        "Maximum number of retry attempts",
+                        featuresConfig.getRetryAttempts(),
+                        false),
+                durationProperty(
+                        RETRY_DELAY,
+                        "Delay before initiating a retry",
+                        featuresConfig.getRetryDelay(),
                         false));
     }
 
@@ -1195,5 +1207,15 @@ public final class SystemSessionProperties
             }
         }
         return retryPolicy;
+    }
+
+    public static int getRetryAttempts(Session session)
+    {
+        return session.getSystemProperty(RETRY_ATTEMPTS, Integer.class);
+    }
+
+    public static Duration getRetryDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_DELAY, Duration.class);
     }
 }
