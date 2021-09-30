@@ -84,7 +84,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
-import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
@@ -122,6 +121,7 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final TaskManager coordinatorTaskManager;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -150,7 +150,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            TaskManager coordinatorTaskManager)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -206,6 +207,7 @@ public class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
+            this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
         }
     }
 
@@ -511,7 +513,7 @@ public class SqlQueryExecution
                 rootFragment.getTypes());
 
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = createSqlQueryScheduler(
+        SqlQueryScheduler scheduler = new SqlQueryScheduler(
                 stateMachine,
                 plan.getRoot(),
                 nodePartitioningManager,
@@ -528,7 +530,8 @@ public class SqlQueryExecution
                 dynamicFilterService,
                 tableExecuteContextManager,
                 metadata,
-                splitSourceFactory);
+                splitSourceFactory,
+                coordinatorTaskManager);
 
         queryScheduler.set(scheduler);
 
@@ -716,6 +719,7 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
+        private final TaskManager coordinatorTaskManager;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -741,7 +745,8 @@ public class SqlQueryExecution
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
-                TableExecuteContextManager tableExecuteContextManager)
+                TableExecuteContextManager tableExecuteContextManager,
+                TaskManager coordinatorTaskManager)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -767,6 +772,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+            this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
         }
 
         @Override
@@ -807,7 +813,8 @@ public class SqlQueryExecution
                     costCalculator,
                     dynamicFilterService,
                     warningCollector,
-                    tableExecuteContextManager);
+                    tableExecuteContextManager,
+                    coordinatorTaskManager);
         }
     }
 }

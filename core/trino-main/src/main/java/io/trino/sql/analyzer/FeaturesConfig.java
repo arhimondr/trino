@@ -40,6 +40,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -145,6 +146,8 @@ public class FeaturesConfig
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
+    private int retryAttempts = 4;
+    private Duration retryDelay = new Duration(10, SECONDS);
 
     public enum JoinReorderingStrategy
     {
@@ -1117,6 +1120,32 @@ public class FeaturesConfig
     public FeaturesConfig setRetryPolicy(RetryPolicy retryPolicy)
     {
         this.retryPolicy = retryPolicy;
+        return this;
+    }
+
+    @Min(0)
+    public int getRetryAttempts()
+    {
+        return retryAttempts;
+    }
+
+    @Config("retry-attempts")
+    public FeaturesConfig setRetryAttempts(int retryAttempts)
+    {
+        this.retryAttempts = retryAttempts;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRetryDelay()
+    {
+        return retryDelay;
+    }
+
+    @Config("retry-delay")
+    public FeaturesConfig setRetryDelay(Duration retryDelay)
+    {
+        this.retryDelay = retryDelay;
         return this;
     }
 }

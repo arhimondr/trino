@@ -116,7 +116,9 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
-                .setRetryPolicy(RetryPolicy.NONE));
+                .setRetryPolicy(RetryPolicy.NONE)
+                .setRetryAttempts(4)
+                .setRetryDelay(new Duration(10, SECONDS)));
     }
 
     @Test
@@ -197,6 +199,8 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("retry-policy", "QUERY")
+                .put("retry-attempts", "0")
+                .put("retry-delay", "1m")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -273,7 +277,9 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
-                .setRetryPolicy(RetryPolicy.QUERY);
+                .setRetryPolicy(RetryPolicy.QUERY)
+                .setRetryAttempts(0)
+                .setRetryDelay(new Duration(1, MINUTES));
         assertFullMapping(properties, expected);
     }
 }
