@@ -146,6 +146,9 @@ public final class SystemSessionProperties
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String RETRY_POLICY = "retry_policy";
+    public static final String RETRY_ATTEMPTS = "retry_attempts";
+    public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
+    public static final String RETRY_MAX_DELAY = "retry_max_delay";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -669,6 +672,21 @@ public final class SystemSessionProperties
                         "Retry policy",
                         RetryPolicy.class,
                         featuresConfig.getRetryPolicy(),
+                        false),
+                integerProperty(
+                        RETRY_ATTEMPTS,
+                        "Maximum number of retry attempts",
+                        featuresConfig.getRetryAttempts(),
+                        false),
+                durationProperty(
+                        RETRY_INITIAL_DELAY,
+                        "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
+                        featuresConfig.getRetryInitialDelay(),
+                        false),
+                durationProperty(
+                        RETRY_MAX_DELAY,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        featuresConfig.getRetryMaxDelay(),
                         false));
     }
 
@@ -1195,5 +1213,20 @@ public final class SystemSessionProperties
             }
         }
         return retryPolicy;
+    }
+
+    public static int getRetryAttempts(Session session)
+    {
+        return session.getSystemProperty(RETRY_ATTEMPTS, Integer.class);
+    }
+
+    public static Duration getRetryInitialDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_INITIAL_DELAY, Duration.class);
+    }
+
+    public static Duration getRetryMaxDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
     }
 }

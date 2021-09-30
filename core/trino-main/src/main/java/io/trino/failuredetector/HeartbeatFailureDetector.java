@@ -74,6 +74,7 @@ import static io.trino.failuredetector.FailureDetector.State.UNKNOWN;
 import static io.trino.failuredetector.FailureDetector.State.UNRESPONSIVE;
 import static io.trino.spi.HostAddress.fromUri;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class HeartbeatFailureDetector
         implements FailureDetector
@@ -322,7 +323,7 @@ public class HeartbeatFailureDetector
                         // ignore to avoid getting unscheduled
                         log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
                     }
-                }, heartbeat.toMillis(), heartbeat.toMillis(), TimeUnit.MILLISECONDS);
+                }, heartbeat.toMillis(), heartbeat.toMillis(), MILLISECONDS);
                 disabledTimestamp = null;
             }
         }
