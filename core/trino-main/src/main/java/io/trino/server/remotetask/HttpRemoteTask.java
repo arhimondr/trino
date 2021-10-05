@@ -53,6 +53,7 @@ import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoTransportException;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -560,6 +561,27 @@ public final class HttpRemoteTask
         updateSplitQueueSpace();
     }
 
+    private void cleanUpLocally()
+    {
+        // Update the taskInfo with the new taskStatus.
+
+        // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+        // the coordinator based on what we fetched from the worker. If we somehow cannot
+        // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+        // likely will not say the task is done however many times we try. In this case,
+        // we have to set the local query info directly so that we stop trying to fetch
+        // updated TaskInfo from the worker. This way, the task on the worker eventually
+        // expires due to lack of activity.
+
+        // This is required because the query state machine depends on TaskInfo (instead of task status)
+        // to transition its own state.
+        // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+        // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+        // indicating that the stats may not reflect the final stats on the worker.
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+    }
+
     private void updateTaskInfo(TaskInfo taskInfo)
     {
         taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
@@ -676,11 +698,7 @@ public final class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cancel", false);
         }
     }
 
@@ -711,12 +729,7 @@ public final class HttpRemoteTask
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = prepareDelete()
-                .setUri(uriBuilder.build())
-                .build();
-
-        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cleanup", false);
     }
 
     @Override
@@ -726,32 +739,26 @@ public final class HttpRemoteTask
             return;
         }
 
-        abort(failWith(getTaskStatus(), ABORTED, ImmutableList.of()));
-    }
-
-    private synchronized void abort(TaskStatus status)
-    {
-        checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
-
+        TaskStatus status = failWith(getTaskStatus(), ABORTED, ImmutableList.of());
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
-
             // send abort to task
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
         }
     }
 
-    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, boolean abort)
     {
         if (!aborting.compareAndSet(false, true)) {
             // Do not initiate another round of cleanup requests if one had been initiated.
             // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
             return;
         }
+
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
+        Request request = prepareDelete()
+                .setUri(uriBuilder.build())
+                .build();
         doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
     }
 
@@ -788,6 +795,11 @@ public final class HttpRemoteTask
                     return;
                 }
 
+                // final task info is set
+                if (taskInfoFetcher.getTaskInfo().getTaskStatus().getState().isDone()) {
+                    return;
+                }
+
                 // reschedule
                 long delayNanos = cleanupBackoff.getBackoffDelayNanos();
                 if (delayNanos == 0) {
@@ -796,27 +808,6 @@ public final class HttpRemoteTask
                 else {
                     errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
-            }
-
-            private void cleanUpLocally()
-            {
-                // Update the taskInfo with the new taskStatus.
-
-                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
-                // the coordinator based on what we fetched from the worker. If we somehow cannot
-                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
-                // likely will not say the task is done however many times we try. In this case,
-                // we have to set the local query info directly so that we stop trying to fetch
-                // updated TaskInfo from the worker. This way, the task on the worker eventually
-                // expires due to lack of activity.
-
-                // This is required because the query state machine depends on TaskInfo (instead of task status)
-                // to transition its own state.
-                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-
-                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
-                // indicating that the stats may not reflect the final stats on the worker.
-                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
             }
         }, executor);
     }
@@ -831,7 +822,19 @@ public final class HttpRemoteTask
             log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
         }
 
-        abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+        TaskStatus status = failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause)));
+        taskStatusFetcher.updateTaskStatus(status);
+
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            if (cause instanceof TrinoTransportException) {
+                // task is unreachable
+                cleanUpLocally();
+            }
+            else {
+                // send abort to task
+                scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
+            }
+        }
     }
 
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
