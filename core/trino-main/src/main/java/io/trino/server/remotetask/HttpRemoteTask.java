@@ -730,7 +730,7 @@ public final class HttpRemoteTask
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
-        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cleanup", false);
+        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cleanup", true);
     }
 
     @Override
