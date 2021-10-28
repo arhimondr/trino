@@ -27,12 +27,14 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -151,7 +153,8 @@ public final class TaskTestUtils
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators,
-                new TableExecuteContextManager());
+                new TableExecuteContextManager(),
+                new ShuffleServiceManager(new HandleResolver()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

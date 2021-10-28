@@ -15,10 +15,13 @@ package io.trino.split;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.shuffle.ShufflePartitionHandle;
 
 import java.net.URI;
 import java.util.List;
@@ -29,26 +32,18 @@ import static java.util.Objects.requireNonNull;
 public class RemoteSplit
         implements ConnectorSplit
 {
-    private final TaskId taskId;
-    private final URI location;
+    private final RemoteSplitInput remoteSplitInput;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("remoteSplitInput") RemoteSplitInput remoteSplitInput)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.location = requireNonNull(location, "location is null");
+        this.remoteSplitInput = requireNonNull(remoteSplitInput, "remoteSplitInput is null");
     }
 
     @JsonProperty
-    public TaskId getTaskId()
+    public RemoteSplitInput getRemoteSplitInput()
     {
-        return taskId;
-    }
-
-    @JsonProperty
-    public URI getLocation()
-    {
-        return location;
+        return remoteSplitInput;
     }
 
     @Override
@@ -73,8 +68,78 @@ public class RemoteSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskId)
-                .add("location", location)
+                .add("remoteSplitInput", remoteSplitInput)
                 .toString();
+    }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            property = "@type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = RemoteTaskInput.class, name = "task"),
+            @JsonSubTypes.Type(value = ShuffleServiceInput.class, name = "shuffle")})
+    public interface RemoteSplitInput
+    {
+    }
+
+    public static class RemoteTaskInput
+            implements RemoteSplitInput
+    {
+        private final TaskId taskId;
+        private final URI location;
+
+        @JsonCreator
+        public RemoteTaskInput(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+        {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+            this.location = requireNonNull(location, "location is null");
+        }
+
+        @JsonProperty
+        public TaskId getTaskId()
+        {
+            return taskId;
+        }
+
+        @JsonProperty
+        public URI getLocation()
+        {
+            return location;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskId", taskId)
+                    .add("location", location)
+                    .toString();
+        }
+    }
+
+    public static class ShuffleServiceInput
+            implements RemoteSplitInput
+    {
+        private final List<ShufflePartitionHandle> shufflePartitionHandles;
+
+        @JsonCreator
+        public ShuffleServiceInput(@JsonProperty("shufflePartitionHandles") List<ShufflePartitionHandle> shufflePartitionHandles)
+        {
+            this.shufflePartitionHandles = ImmutableList.copyOf(requireNonNull(shufflePartitionHandles, "shufflePartitionHandles is null"));
+        }
+
+        @JsonProperty
+        public List<ShufflePartitionHandle> getShufflePartitionHandles()
+        {
+            return shufflePartitionHandles;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("shufflePartitionHandles", shufflePartitionHandles)
+                    .toString();
+        }
     }
 }

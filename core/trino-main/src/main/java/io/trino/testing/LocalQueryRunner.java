@@ -281,6 +281,7 @@ public class LocalQueryRunner
     private final JoinCompiler joinCompiler;
     private final ConnectorManager connectorManager;
     private final PluginManager pluginManager;
+    private final ShuffleServiceManager shuffleServiceManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     private final TaskManagerConfig taskManagerConfig;
@@ -415,6 +416,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata, transactionManager)),
                 ImmutableSet.of());
 
+        this.shuffleServiceManager = new ShuffleServiceManager(handleResolver);
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 connectorManager,
@@ -427,7 +429,7 @@ public class LocalQueryRunner
                 eventListenerManager,
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo),
-                new ShuffleServiceManager(handleResolver));
+                shuffleServiceManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -853,7 +855,8 @@ public class LocalQueryRunner
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators,
-                tableExecuteContextManager);
+                tableExecuteContextManager,
+                shuffleServiceManager);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

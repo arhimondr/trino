@@ -38,6 +38,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.TrinoException;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.RemoteTaskInput;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -506,7 +507,7 @@ public class StreamingStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new RemoteTaskInput(sourceTask.getTaskId(), splitLocation)), Lifespan.taskWide());
     }
 
     public enum State

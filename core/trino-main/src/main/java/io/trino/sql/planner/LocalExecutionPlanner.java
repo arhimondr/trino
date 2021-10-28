@@ -133,6 +133,7 @@ import io.trino.operator.window.pattern.LabelEvaluator.EvaluationSupplier;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
 import io.trino.operator.window.pattern.MeasureComputation.MeasureComputationSupplier;
 import io.trino.operator.window.pattern.PhysicalValuePointer;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -369,6 +370,7 @@ public class LocalExecutionPlanner
     private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final ShuffleServiceManager shuffleServiceManager;
 
     @Inject
     public LocalExecutionPlanner(
@@ -395,7 +397,8 @@ public class LocalExecutionPlanner
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            ShuffleServiceManager shuffleServiceManager)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -424,6 +427,7 @@ public class LocalExecutionPlanner
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+        this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
     }
 
     public LocalExecutionPlan plan(
@@ -890,7 +894,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     exchangeClientSupplier,
                     new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
-                    node.getRetryPolicy());
+                    node.getRetryPolicy(),
+                    shuffleServiceManager);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
