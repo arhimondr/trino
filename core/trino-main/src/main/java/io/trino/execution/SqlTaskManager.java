@@ -40,6 +40,7 @@ import io.trino.memory.MemoryPoolAssignment;
 import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
@@ -133,7 +134,8 @@ public class SqlTaskManager
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
             NodeSpillConfig nodeSpillConfig,
-            GcMonitor gcMonitor)
+            GcMonitor gcMonitor,
+            ShuffleServiceManager shuffleServiceManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -174,6 +176,7 @@ public class SqlTaskManager
                         sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
                         maxBufferSize,
                         maxBroadcastBufferSize,
+                        requireNonNull(shuffleServiceManager, "shuffleServiceManager is null"),
                         failedTasks)));
     }
 

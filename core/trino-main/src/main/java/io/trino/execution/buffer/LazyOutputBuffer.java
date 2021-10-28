@@ -23,6 +23,10 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.spi.shuffle.ShuffleHandle;
+import io.trino.spi.shuffle.ShuffleOutput;
+import io.trino.spi.shuffle.ShuffleService;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -47,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class LazyOutputBuffer
         implements OutputBuffer
 {
+    private final TaskId taskId;
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
@@ -54,6 +59,7 @@ public class LazyOutputBuffer
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
+    private final ShuffleServiceManager shuffleServiceManager;
 
     // Note: this is a write once field, so an unsynchronized volatile read that returns a non-null value is safe, but if a null value is observed instead
     // a subsequent synchronized read is required to ensure the writing thread can complete any in-flight initialization
@@ -73,9 +79,10 @@ public class LazyOutputBuffer
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
-            Runnable notifyStatusChanged)
+            Runnable notifyStatusChanged,
+            ShuffleServiceManager shuffleServiceManager)
     {
-        requireNonNull(taskId, "taskId is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
@@ -84,6 +91,7 @@ public class LazyOutputBuffer
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
+        this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
     }
 
     @Override
@@ -168,6 +176,15 @@ public class LazyOutputBuffer
                         case ARBITRARY:
                             outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
+                        case SHUFFLE_SERVICE:
+                            ShuffleHandle shuffleHandle = newOutputBuffers.getShuffleHandle()
+                                    .orElseThrow(() -> new IllegalArgumentException("shuffle handle is expected to be present for buffer type SHUFFLE_SERVICE"));
+                            ShuffleService shuffleService = shuffleServiceManager.getShuffleService();
+                            ShuffleOutput shuffleOutput = shuffleService.createOutput(shuffleHandle, taskId.getPartitionId());
+                            outputBuffer = new ShuffleServiceOutputBuffer(state, newOutputBuffers, shuffleOutput, systemMemoryContextSupplier);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unexpected output buffer type: " + newOutputBuffers.getType());
                     }
 
                     // process pending aborts and reads outside of synchronized lock

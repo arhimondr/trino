@@ -25,10 +25,12 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
@@ -306,6 +308,7 @@ public class TestMemoryRevokingScheduler
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
+                new ShuffleServiceManager(new HandleResolver()),
                 new CounterStat());
     }
 

@@ -31,10 +31,12 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.ExchangeClient;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -310,7 +312,8 @@ public class TestSqlTaskManager
                 nodeMemoryConfig,
                 localSpillManager,
                 new NodeSpillConfig(),
-                new TestingGcMonitor());
+                new TestingGcMonitor(),
+                new ShuffleServiceManager(new HandleResolver()));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

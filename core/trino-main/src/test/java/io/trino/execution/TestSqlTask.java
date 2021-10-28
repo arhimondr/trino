@@ -28,7 +28,9 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.operator.TaskContext;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.predicate.Domain;
@@ -364,6 +366,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
+                new ShuffleServiceManager(new HandleResolver()),
                 new CounterStat());
     }
 }

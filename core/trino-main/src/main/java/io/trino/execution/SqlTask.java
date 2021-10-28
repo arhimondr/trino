@@ -35,6 +35,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -103,9 +104,10 @@ public class SqlTask
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
+            ShuffleServiceManager shuffleServiceManager,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, shuffleServiceManager);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -118,7 +120,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            DataSize maxBroadcastBufferSize)
+            DataSize maxBroadcastBufferSize,
+            ShuffleServiceManager shuffleServiceManager)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -138,7 +141,8 @@ public class SqlTask
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
-                () -> notifyStatusChanged());
+                () -> notifyStatusChanged(),
+                shuffleServiceManager);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
