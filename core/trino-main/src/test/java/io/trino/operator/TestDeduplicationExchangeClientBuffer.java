@@ -137,16 +137,16 @@ public class TestDeduplicationExchangeClientBuffer
     }
 
     @Test
-    public void testPollPage()
+    public void testPollPagesQueryLevelRetry()
     {
-        testPollPages(ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
-        testPollPages(
+        testPollPagesQueryLevelRetry(ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0")),
                 ImmutableMap.of(),
                 ImmutableList.of("p0a0v0"));
-        testPollPages(
+        testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0"),
@@ -154,7 +154,7 @@ public class TestDeduplicationExchangeClientBuffer
                         createPage("p0a1v0")),
                 ImmutableMap.of(),
                 ImmutableList.of("p0a1v0"));
-        testPollPages(
+        testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0"),
@@ -164,7 +164,7 @@ public class TestDeduplicationExchangeClientBuffer
                         createPage("p0a1v0")),
                 ImmutableMap.of(),
                 ImmutableList.of("p0a1v0"));
-        testPollPages(
+        testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0"),
@@ -177,7 +177,7 @@ public class TestDeduplicationExchangeClientBuffer
                         new RuntimeException("error")),
                 ImmutableList.of("p0a1v0"));
         RuntimeException error = new RuntimeException("error");
-        assertThatThrownBy(() -> testPollPages(
+        assertThatThrownBy(() -> testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0"),
@@ -189,7 +189,7 @@ public class TestDeduplicationExchangeClientBuffer
                         createTaskId(2, 2),
                         error),
                 ImmutableList.of("p0a1v0"))).isEqualTo(error);
-        assertThatThrownBy(() -> testPollPages(
+        assertThatThrownBy(() -> testPollPagesQueryLevelRetry(
                 ImmutableListMultimap.of(
                         createTaskId(0, 0),
                         createPage("p0a0v0"),
@@ -203,9 +203,84 @@ public class TestDeduplicationExchangeClientBuffer
                 ImmutableList.of("p0a1v0"))).isEqualTo(error);
     }
 
-    private void testPollPages(Multimap<TaskId, SerializedPage> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    private void testPollPagesQueryLevelRetry(Multimap<TaskId, SerializedPage> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
     {
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        testPollPages(RetryPolicy.QUERY, pages, failures, expectedValues);
+    }
+
+    @Test
+    public void testPollPagesTaskLevelRetry()
+    {
+        testPollPagesTaskLevelRetry(ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(0, 0),
+                        createPage("p0a0v0")),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0"));
+        testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(0, 0),
+                        createPage("p0a0v0"),
+                        createTaskId(0, 1),
+                        createPage("p0a1v0")),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0"));
+        testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(0, 0),
+                        createPage("p0a0v0"),
+                        createTaskId(1, 0),
+                        createPage("p1a0v0"),
+                        createTaskId(0, 1),
+                        createPage("p0a1v0")),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0", "p1a0v0"));
+        testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(0, 0),
+                        createPage("p0a0v0"),
+                        createTaskId(1, 1),
+                        createPage("p1a0v0"),
+                        createTaskId(0, 1),
+                        createPage("p0a1v0")),
+                ImmutableMap.of(
+                        createTaskId(1, 0),
+                        new RuntimeException("error")),
+                ImmutableList.of("p0a0v0", "p1a0v0"));
+        RuntimeException error = new RuntimeException("error");
+        assertThatThrownBy(() -> testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(0, 0),
+                        createPage("p0a0v0"),
+                        createTaskId(1, 0),
+                        createPage("p1a0v0"),
+                        createTaskId(0, 1),
+                        createPage("p0a1v0")),
+                ImmutableMap.of(
+                        createTaskId(2, 2),
+                        error),
+                ImmutableList.of("p0a1v0"))).isEqualTo(error);
+        assertThatThrownBy(() -> testPollPagesTaskLevelRetry(
+                ImmutableListMultimap.of(
+                        createTaskId(1, 0),
+                        createPage("p1a0v0"),
+                        createTaskId(0, 1),
+                        createPage("p0a1v0")),
+                ImmutableMap.of(
+                        createTaskId(0, 1),
+                        error),
+                ImmutableList.of("p0a1v0"))).isEqualTo(error);
+    }
+
+    private void testPollPagesTaskLevelRetry(Multimap<TaskId, SerializedPage> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    {
+        testPollPages(RetryPolicy.TASK, pages, failures, expectedValues);
+    }
+
+    private void testPollPages(RetryPolicy retryPolicy, Multimap<TaskId, SerializedPage> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    {
+        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, retryPolicy)) {
             for (TaskId taskId : Sets.union(pages.keySet(), failures.keySet())) {
                 buffer.addTask(taskId);
             }
