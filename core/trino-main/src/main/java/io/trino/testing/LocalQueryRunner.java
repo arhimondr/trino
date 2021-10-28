@@ -857,7 +857,8 @@ public class LocalQueryRunner
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators,
-                tableExecuteContextManager);
+                tableExecuteContextManager,
+                exchangeManagerRegistry);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
