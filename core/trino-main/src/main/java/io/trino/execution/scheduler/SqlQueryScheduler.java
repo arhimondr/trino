@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.graph.Traverser;
 import com.google.common.primitives.Ints;
@@ -53,10 +54,13 @@ import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.shuffle.Shuffle;
+import io.trino.spi.shuffle.ShuffleService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -83,16 +87,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -102,18 +109,21 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
+import static io.trino.SystemSessionProperties.getHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryAttempts;
 import static io.trino.SystemSessionProperties.getRetryDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.SqlStageExecution.createSqlStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.ABORTED;
@@ -130,6 +140,7 @@ import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -161,6 +172,8 @@ public class SqlQueryScheduler
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final SplitSourceFactory splitSourceFactory;
+    private final ShuffleServiceManager shuffleServiceManager;
+    private final BatchTaskSourceFactory batchTaskSourceFactory;
 
     private final StageExecutions stages;
     private final CoordinatorStagesScheduler coordinatorStagesScheduler;
@@ -195,7 +208,9 @@ public class SqlQueryScheduler
             TableExecuteContextManager tableExecuteContextManager,
             Metadata metadata,
             SplitSourceFactory splitSourceFactory,
-            TaskManager coordinatorTaskManager)
+            TaskManager coordinatorTaskManager,
+            ShuffleServiceManager shuffleServiceManager,
+            BatchTaskSourceFactory batchTaskSourceFactory)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -209,6 +224,8 @@ public class SqlQueryScheduler
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
+        this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
+        this.batchTaskSourceFactory = requireNonNull(batchTaskSourceFactory, "batchTaskSourceFactory is null");
 
         stages = StageExecutions.create(
                 queryStateMachine,
@@ -287,22 +304,47 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
-        DistributedStagesScheduler distributedStagesScheduler = StreamingDistributedStagesScheduler.create(
-                queryStateMachine,
-                schedulerStats,
-                nodeScheduler,
-                nodePartitioningManager,
-                stages,
-                coordinatorStagesScheduler,
-                executionPolicy,
-                failureDetector,
-                schedulerExecutor,
-                splitSourceFactory,
-                splitBatchSize,
-                dynamicFilterService,
-                tableExecuteContextManager,
-                retryPolicy,
-                attempt);
+
+        DistributedStagesScheduler distributedStagesScheduler;
+        switch (retryPolicy) {
+            case TASK:
+                ShuffleService shuffleService = shuffleServiceManager.getShuffleService();
+                distributedStagesScheduler = BatchDistributedStagesScheduler.create(
+                        queryStateMachine,
+                        stages,
+                        failureDetector,
+                        batchTaskSourceFactory,
+                        shuffleService,
+                        nodePartitioningManager,
+                        coordinatorStagesScheduler.getResultsConsumer(),
+                        maxRetryAttempts,
+                        schedulerExecutor,
+                        schedulerStats,
+                        nodeScheduler);
+                break;
+            case QUERY:
+            case NONE:
+                distributedStagesScheduler = StreamingDistributedStagesScheduler.create(
+                        queryStateMachine,
+                        schedulerStats,
+                        nodeScheduler,
+                        nodePartitioningManager,
+                        stages,
+                        coordinatorStagesScheduler,
+                        executionPolicy,
+                        failureDetector,
+                        schedulerExecutor,
+                        splitSourceFactory,
+                        splitBatchSize,
+                        dynamicFilterService,
+                        tableExecuteContextManager,
+                        retryPolicy,
+                        attempt);
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected retry policy: " + retryPolicy);
+        }
+
         this.distributedStagesScheduler.set(distributedStagesScheduler);
         distributedStagesScheduler.addStateChangeListener(state -> {
             if (queryStateMachine.getQueryState() == QueryState.STARTING && state != DistributedStagesSchedulerState.PLANNED) {
@@ -1544,6 +1586,325 @@ public class SqlQueryScheduler
         public Collection<StreamingStageExecution> getStageExecutions()
         {
             return stageExecutions.values();
+        }
+
+        @Override
+        public Optional<StageFailureInfo> getFailureCause()
+        {
+            return stateMachine.getFailureCause();
+        }
+    }
+
+    private static class BatchDistributedStagesScheduler
+            implements DistributedStagesScheduler
+    {
+        private final DistributedStagesSchedulerStateMachine stateMachine;
+        private final QueryStateMachine queryStateMachine;
+        private final List<BatchTaskScheduler> schedulers;
+        private final SplitSchedulerStats schedulerStats;
+        private final NodeAllocator nodeAllocator;
+        private final ScheduledFuture<?> nodeUpdateTask;
+
+        private final AtomicBoolean started = new AtomicBoolean();
+
+        public static BatchDistributedStagesScheduler create(
+                QueryStateMachine queryStateMachine,
+                StageExecutions stages,
+                FailureDetector failureDetector,
+                BatchTaskSourceFactory taskSourceFactory,
+                ShuffleService shuffleService,
+                NodePartitioningManager nodePartitioningManager,
+                ResultsConsumer coordinatorResultConsumer,
+                int retryAttempts,
+                ScheduledExecutorService scheduledExecutorService,
+                SplitSchedulerStats schedulerStats,
+                NodeScheduler nodeScheduler)
+        {
+            DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), scheduledExecutorService);
+
+            Session session = queryStateMachine.getSession();
+            int hashPartitionCount = getHashPartitionCount(session);
+            Map<PartitioningHandle, BucketToPartition> bucketToPartitionCacheMap = new HashMap<>();
+            Function<PartitioningHandle, BucketToPartition> bucketToPartitionMapCache = partitioningHandle ->
+                    bucketToPartitionCacheMap.computeIfAbsent(partitioningHandle, handle -> createBucketToPartitionMap(session, hashPartitionCount, handle, nodePartitioningManager));
+
+            ImmutableList.Builder<BatchTaskScheduler> schedulers = ImmutableList.builder();
+            Map<PlanFragmentId, Shuffle> shuffles = new HashMap<>();
+
+            FixedCountNodeAllocator nodeAllocator = new FixedCountNodeAllocator(nodeScheduler, session, 1);
+            ScheduledFuture<?> nodeUpdateTask = scheduledExecutorService.scheduleAtFixedRate(nodeAllocator::updateNodes, 5, 5, SECONDS);
+
+            try {
+                // top to bottom order
+                List<SqlStageExecution> distributedStagesInTopologicalOrder = stages.getDistributedStagesInTopologicalOrder();
+                // bottom to top order
+                List<SqlStageExecution> distributedStagesInReverseTopologicalOrder = reverse(distributedStagesInTopologicalOrder);
+
+                ImmutableSet.Builder<PlanFragmentId> coordinatorConsumedFragmentsBuilder = ImmutableSet.builder();
+
+                for (SqlStageExecution stage : distributedStagesInReverseTopologicalOrder) {
+                    PlanFragment fragment = stage.getFragment();
+                    Optional<SqlStageExecution> parent = stages.getParent(stage.getStageId());
+                    Optional<ResultsConsumer> resultsConsumer = Optional.empty();
+                    Optional<Shuffle> shuffle = Optional.empty();
+                    if (parent.isEmpty() || parent.get().getFragment().getPartitioning().isCoordinatorOnly()) {
+                        // output will be consumed by coordinator
+                        resultsConsumer = Optional.of(coordinatorResultConsumer);
+                        coordinatorConsumedFragmentsBuilder.add(fragment.getId());
+                    }
+                    else {
+                        // create shuffle
+                        shuffle = Optional.of(shuffleService.create(hashPartitionCount));
+                        shuffles.put(fragment.getId(), shuffle.get());
+                    }
+
+                    ImmutableMap.Builder<PlanFragmentId, Shuffle> inputShuffles = ImmutableMap.builder();
+                    for (SqlStageExecution child : stages.getChildren(fragment.getId())) {
+                        PlanFragmentId childFragmentId = child.getFragment().getId();
+                        Shuffle inputShuffle = shuffles.get(childFragmentId);
+                        verify(inputShuffle != null, "shuffle not found for fragment: %s", childFragmentId);
+                        inputShuffles.put(childFragmentId, inputShuffle);
+                    }
+
+                    BucketToPartition inputBucketToPartition = bucketToPartitionMapCache.apply(fragment.getPartitioning());
+                    BatchTaskScheduler scheduler = BatchTaskScheduler.create(
+                            session,
+                            stage,
+                            failureDetector,
+                            taskSourceFactory,
+                            nodeAllocator,
+                            resultsConsumer,
+                            shuffle,
+                            bucketToPartitionMapCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
+                            inputShuffles.build(),
+                            inputBucketToPartition.getBucketToPartitionMap(),
+                            inputBucketToPartition.getBucketNodeMap(),
+                            retryAttempts);
+
+                    schedulers.add(scheduler);
+                }
+
+                Set<PlanFragmentId> coordinatorConsumedFragments = coordinatorConsumedFragmentsBuilder.build();
+                stateMachine.addStateChangeListener(state -> {
+                    if (state == DistributedStagesSchedulerState.FINISHED) {
+                        coordinatorConsumedFragments.forEach(coordinatorResultConsumer::noMoreSourceTasks);
+                    }
+                });
+
+                return new BatchDistributedStagesScheduler(
+                        stateMachine,
+                        queryStateMachine,
+                        schedulers.build(),
+                        schedulerStats,
+                        nodeAllocator,
+                        nodeUpdateTask);
+            }
+            catch (Throwable t) {
+                schedulers.build().forEach(BatchTaskScheduler::abort);
+
+                nodeUpdateTask.cancel(true);
+                try {
+                    nodeAllocator.close();
+                }
+                catch (Throwable closeFailure) {
+                    if (t != closeFailure) {
+                        t.addSuppressed(closeFailure);
+                    }
+                }
+
+                for (Shuffle shuffle : shuffles.values()) {
+                    try {
+                        shuffle.close();
+                    }
+                    catch (Throwable closeFailure) {
+                        if (t != closeFailure) {
+                            t.addSuppressed(closeFailure);
+                        }
+                    }
+                }
+                throw t;
+            }
+        }
+
+        private static BucketToPartition createBucketToPartitionMap(
+                Session session,
+                int hashPartitionCount,
+                PartitioningHandle partitioningHandle,
+                NodePartitioningManager nodePartitioningManager)
+        {
+            if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+                return new BucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()), Optional.empty());
+            }
+            else if (partitioningHandle.getConnectorId().isPresent()) {
+                int partitionCount = hashPartitionCount;
+                BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
+                if (!bucketNodeMap.isDynamic()) {
+                    partitionCount = bucketNodeMap.getNodeCount();
+                }
+                int bucketCount = bucketNodeMap.getBucketCount();
+                int[] bucketToPartition = new int[bucketCount];
+                int nextPartitionId = 0;
+                for (int bucket = 0; bucket < bucketCount; bucket++) {
+                    bucketToPartition[bucket] = nextPartitionId++ % partitionCount;
+                }
+                return new BucketToPartition(Optional.of(bucketToPartition), Optional.of(bucketNodeMap));
+            }
+            else {
+                return new BucketToPartition(Optional.empty(), Optional.empty());
+            }
+        }
+
+        private static class BucketToPartition
+        {
+            private final Optional<int[]> bucketToPartitionMap;
+            private final Optional<BucketNodeMap> bucketNodeMap;
+
+            private BucketToPartition(Optional<int[]> bucketToPartitionMap, Optional<BucketNodeMap> bucketNodeMap)
+            {
+                this.bucketToPartitionMap = requireNonNull(bucketToPartitionMap, "bucketToPartitionMap is null");
+                this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
+            }
+
+            public Optional<int[]> getBucketToPartitionMap()
+            {
+                return bucketToPartitionMap;
+            }
+
+            public Optional<BucketNodeMap> getBucketNodeMap()
+            {
+                return bucketNodeMap;
+            }
+        }
+
+        private BatchDistributedStagesScheduler(
+                DistributedStagesSchedulerStateMachine stateMachine,
+                QueryStateMachine queryStateMachine,
+                List<BatchTaskScheduler> schedulers,
+                SplitSchedulerStats schedulerStats,
+                NodeAllocator nodeAllocator,
+                ScheduledFuture<?> nodeUpdateTask)
+        {
+            this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+            this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+            this.schedulers = requireNonNull(schedulers, "schedulers is null");
+            this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+            this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
+            this.nodeUpdateTask = requireNonNull(nodeUpdateTask, "nodeUpdateTask is null");
+        }
+
+        @Override
+        public void schedule()
+        {
+            checkState(started.compareAndSet(false, true), "already started");
+
+            try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+                List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
+                while (!isFinishingOrDone(queryStateMachine) && !stateMachine.getState().isDone()) {
+                    blockedStages.clear();
+                    boolean atLeastOneStageIsNotBlocked = false;
+                    boolean allFinished = true;
+                    for (BatchTaskScheduler scheduler : schedulers) {
+                        if (scheduler.isFinished()) {
+                            continue;
+                        }
+                        allFinished = false;
+                        ListenableFuture<Void> blocked = scheduler.isBlocked();
+                        if (!blocked.isDone()) {
+                            blockedStages.add(blocked);
+                            continue;
+                        }
+                        try {
+                            scheduler.schedule();
+                        }
+                        catch (Throwable t) {
+                            stateMachine.transitionToFailed(t, Optional.of(scheduler.getStageId()));
+                            return;
+                        }
+                        blocked = scheduler.isBlocked();
+                        if (!blocked.isDone()) {
+                            blockedStages.add(blocked);
+                        }
+                        else {
+                            atLeastOneStageIsNotBlocked = true;
+                        }
+                    }
+                    if (allFinished) {
+                        stateMachine.transitionToFinished();
+                        return;
+                    }
+                    // wait for a state change and then schedule again
+                    if (!atLeastOneStageIsNotBlocked && !blockedStages.isEmpty()) {
+                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                            try {
+                                tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                            }
+                            catch (CancellationException e) {
+                                log.debug("Future cancelled");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Throwable t) {
+                stateMachine.transitionToFailed(t, Optional.empty());
+                schedulers.forEach(BatchTaskScheduler::abort);
+                closeNodeAllocator();
+            }
+        }
+
+        private static boolean isFinishingOrDone(QueryStateMachine queryStateMachine)
+        {
+            QueryState queryState = queryStateMachine.getQueryState();
+            return queryState == FINISHING || queryState.isDone();
+        }
+
+        @Override
+        public void cancelStage(StageId stageId)
+        {
+            // single stage cancellation is not supported in batch mode
+        }
+
+        @Override
+        public void cancel()
+        {
+            stateMachine.transitionToCanceled();
+            schedulers.forEach(BatchTaskScheduler::cancel);
+            closeNodeAllocator();
+        }
+
+        @Override
+        public void abort()
+        {
+            stateMachine.transitionToAborted();
+            schedulers.forEach(BatchTaskScheduler::abort);
+            closeNodeAllocator();
+        }
+
+        private void closeNodeAllocator()
+        {
+            nodeUpdateTask.cancel(true);
+            try {
+                nodeAllocator.close();
+            }
+            catch (Throwable t) {
+                log.warn(t, "Error closing node allocator for query: %s", queryStateMachine.getQueryId());
+            }
+        }
+
+        @Override
+        public void reportTaskFailure(TaskId taskId, Throwable failureCause)
+        {
+            for (BatchTaskScheduler scheduler : schedulers) {
+                if (scheduler.getStageId().equals(taskId.getStageId())) {
+                    scheduler.reportTaskFailure(taskId, failureCause);
+                }
+            }
+        }
+
+        @Override
+        public void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
+        {
+            stateMachine.addStateChangeListener(stateChangeListener);
         }
 
         @Override

@@ -70,6 +70,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.testing.shuffle.LocalFileSystemShuffleServiceFactory;
 import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
@@ -331,6 +332,10 @@ public class TestingTrinoServer
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
+
+        ShuffleServiceManager shuffleServiceManager = injector.getInstance(ShuffleServiceManager.class);
+        shuffleServiceManager.addShuffleServiceFactory(new LocalFileSystemShuffleServiceFactory());
+        shuffleServiceManager.loadShuffleService("local", ImmutableMap.of("base-directory", System.getProperty("java.io.tmpdir") + "/testing-shuffle-service"));
 
         announcer.forceAnnounce();
 

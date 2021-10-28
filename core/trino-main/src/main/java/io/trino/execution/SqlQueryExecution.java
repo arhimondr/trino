@@ -24,6 +24,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.scheduler.BatchTaskSourceFactory;
 import io.trino.execution.scheduler.ExecutionPolicy;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
@@ -38,6 +39,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
@@ -122,6 +124,8 @@ public class SqlQueryExecution
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final TaskManager coordinatorTaskManager;
+    private final ShuffleServiceManager shuffleServiceManager;
+    private final BatchTaskSourceFactory batchTaskSourceFactory;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -151,7 +155,9 @@ public class SqlQueryExecution
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
             TableExecuteContextManager tableExecuteContextManager,
-            TaskManager coordinatorTaskManager)
+            TaskManager coordinatorTaskManager,
+            ShuffleServiceManager shuffleServiceManager,
+            BatchTaskSourceFactory batchTaskSourceFactory)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -208,6 +214,8 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
+            this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
+            this.batchTaskSourceFactory = requireNonNull(batchTaskSourceFactory, "batchTaskSourceFactory is null");
         }
     }
 
@@ -531,7 +539,9 @@ public class SqlQueryExecution
                 tableExecuteContextManager,
                 metadata,
                 splitSourceFactory,
-                coordinatorTaskManager);
+                coordinatorTaskManager,
+                shuffleServiceManager,
+                batchTaskSourceFactory);
 
         queryScheduler.set(scheduler);
 
@@ -720,6 +730,8 @@ public class SqlQueryExecution
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final TaskManager coordinatorTaskManager;
+        private final ShuffleServiceManager shuffleServiceManager;
+        private final BatchTaskSourceFactory batchTaskSourceFactory;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -746,7 +758,9 @@ public class SqlQueryExecution
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
-                TaskManager coordinatorTaskManager)
+                TaskManager coordinatorTaskManager,
+                ShuffleServiceManager shuffleServiceManager,
+                BatchTaskSourceFactory batchTaskSourceFactory)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -773,6 +787,8 @@ public class SqlQueryExecution
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
+            this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
+            this.batchTaskSourceFactory = requireNonNull(batchTaskSourceFactory, "batchTaskSourceFactory is null");
         }
 
         @Override
@@ -814,7 +830,9 @@ public class SqlQueryExecution
                     dynamicFilterService,
                     warningCollector,
                     tableExecuteContextManager,
-                    coordinatorTaskManager);
+                    coordinatorTaskManager,
+                    shuffleServiceManager,
+                    batchTaskSourceFactory);
         }
     }
 }

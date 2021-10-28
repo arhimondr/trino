@@ -148,6 +148,8 @@ public final class SystemSessionProperties
     public static final String RETRY_POLICY = "retry_policy";
     public static final String RETRY_ATTEMPTS = "retry_attempts";
     public static final String RETRY_DELAY = "retry_delay";
+    public static final String BATCH_EXECUTION_TARGET_PARTITION_SIZE = "batch_execution_target_partition_size";
+    public static final String BATCH_EXECUTION_TARGET_PARTITION_SPLIT_COUNT = "batch_execution_target_partition_split_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -681,6 +683,16 @@ public final class SystemSessionProperties
                         RETRY_DELAY,
                         "Delay before initiating a retry",
                         featuresConfig.getRetryDelay(),
+                        false),
+                dataSizeProperty(
+                        BATCH_EXECUTION_TARGET_PARTITION_SIZE,
+                        "Target size for a single partition for batch (task level recoverable) execution",
+                        featuresConfig.getBatchExecutionTargetPartitionSize(),
+                        false),
+                integerProperty(
+                        BATCH_EXECUTION_TARGET_PARTITION_SPLIT_COUNT,
+                        "Target number of splits for a single partition for batch (task level recoverable) execution",
+                        featuresConfig.getBatchExecutionTargetPartitionSplitCount(),
                         false));
     }
 
@@ -1206,6 +1218,11 @@ public final class SystemSessionProperties
                 throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
             }
         }
+        if (retryPolicy == RetryPolicy.TASK) {
+            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
+            }
+        }
         return retryPolicy;
     }
 
@@ -1217,5 +1234,15 @@ public final class SystemSessionProperties
     public static Duration getRetryDelay(Session session)
     {
         return session.getSystemProperty(RETRY_DELAY, Duration.class);
+    }
+
+    public static DataSize getBatchExecutionTargetPartitionSize(Session session)
+    {
+        return session.getSystemProperty(BATCH_EXECUTION_TARGET_PARTITION_SIZE, DataSize.class);
+    }
+
+    public static int getBatchExecutionTargetPartitionSplitCount(Session session)
+    {
+        return session.getSystemProperty(BATCH_EXECUTION_TARGET_PARTITION_SPLIT_COUNT, Integer.class);
     }
 }

@@ -118,7 +118,9 @@ public class TestFeaturesConfig
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
                 .setRetryPolicy(RetryPolicy.NONE)
                 .setRetryAttempts(4)
-                .setRetryDelay(new Duration(10, SECONDS)));
+                .setRetryDelay(new Duration(10, SECONDS))
+                .setBatchExecutionTargetPartitionSize(DataSize.of(1, GIGABYTE))
+                .setBatchExecutionTargetPartitionSplitCount(16));
     }
 
     @Test
@@ -201,6 +203,8 @@ public class TestFeaturesConfig
                 .put("retry-policy", "QUERY")
                 .put("retry-attempts", "0")
                 .put("retry-delay", "1m")
+                .put("batch-execution-target-partition-size", "222MB")
+                .put("batch-execution-target-partition-split-count", "3")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -279,7 +283,9 @@ public class TestFeaturesConfig
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
                 .setRetryPolicy(RetryPolicy.QUERY)
                 .setRetryAttempts(0)
-                .setRetryDelay(new Duration(1, MINUTES));
+                .setRetryDelay(new Duration(1, MINUTES))
+                .setBatchExecutionTargetPartitionSize(DataSize.of(222, MEGABYTE))
+                .setBatchExecutionTargetPartitionSplitCount(3);
         assertFullMapping(properties, expected);
     }
 }

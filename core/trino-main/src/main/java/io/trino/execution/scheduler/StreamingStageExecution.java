@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.execution.ExecutionFailureInfo.rewriteTransportFailure;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.CANCELED;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.FAILED;
@@ -77,10 +78,8 @@ import static io.trino.execution.scheduler.StreamingStageExecution.State.RUNNING
 import static io.trino.execution.scheduler.StreamingStageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.SCHEDULING;
 import static io.trino.execution.scheduler.StreamingStageExecution.State.SCHEDULING_SPLITS;
-import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
 
 public class StreamingStageExecution
@@ -360,7 +359,7 @@ public class StreamingStageExecution
             case FAILED:
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
-                        .map(this::rewriteTransportFailure)
+                        .map(f -> rewriteTransportFailure(failureDetector, f))
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 fail(failure);
@@ -411,23 +410,6 @@ public class StreamingStageExecution
         // newlyCompletedDriverGroups is a view.
         // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
         completedDriverGroups.addAll(newlyCompletedDriverGroups);
-    }
-
-    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
-    {
-        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
-            return executionFailureInfo;
-        }
-
-        return new ExecutionFailureInfo(
-                executionFailureInfo.getType(),
-                executionFailureInfo.getMessage(),
-                executionFailureInfo.getCause(),
-                executionFailureInfo.getSuppressed(),
-                executionFailureInfo.getStack(),
-                executionFailureInfo.getErrorLocation(),
-                REMOTE_HOST_GONE.toErrorCode(),
-                executionFailureInfo.getRemoteHost());
     }
 
     @Override

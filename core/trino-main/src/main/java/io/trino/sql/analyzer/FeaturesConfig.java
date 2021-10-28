@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
@@ -148,6 +149,9 @@ public class FeaturesConfig
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int retryAttempts = 4;
     private Duration retryDelay = new Duration(10, SECONDS);
+
+    private DataSize batchExecutionTargetPartitionSize = DataSize.of(1, GIGABYTE);
+    private int batchExecutionTargetPartitionSplitCount = 16;
 
     public enum JoinReorderingStrategy
     {
@@ -1146,6 +1150,32 @@ public class FeaturesConfig
     public FeaturesConfig setRetryDelay(Duration retryDelay)
     {
         this.retryDelay = retryDelay;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getBatchExecutionTargetPartitionSize()
+    {
+        return batchExecutionTargetPartitionSize;
+    }
+
+    @Config("batch-execution-target-partition-size")
+    public FeaturesConfig setBatchExecutionTargetPartitionSize(DataSize batchExecutionTargetPartitionSize)
+    {
+        this.batchExecutionTargetPartitionSize = batchExecutionTargetPartitionSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getBatchExecutionTargetPartitionSplitCount()
+    {
+        return batchExecutionTargetPartitionSplitCount;
+    }
+
+    @Config("batch-execution-target-partition-split-count")
+    public FeaturesConfig setBatchExecutionTargetPartitionSplitCount(int batchExecutionTargetPartitionSplitCount)
+    {
+        this.batchExecutionTargetPartitionSplitCount = batchExecutionTargetPartitionSplitCount;
         return this;
     }
 }
