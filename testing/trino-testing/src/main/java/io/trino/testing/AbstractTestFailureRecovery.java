@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.client.StageStats;
 import io.trino.client.StatementStats;
 import io.trino.execution.FailureInjectionService.InjectedFailureType;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
@@ -65,7 +66,14 @@ public abstract class AbstractTestFailureRecovery
     private static final Duration MAX_ERROR_DURATION = new Duration(10, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(10, SECONDS);
 
+    private final RetryPolicy retryPolicy;
+
     private QueryRunner queryRunner;
+
+    protected AbstractTestFailureRecovery(RetryPolicy retryPolicy)
+    {
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+    }
 
     protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception;
@@ -79,11 +87,12 @@ public abstract class AbstractTestFailureRecovery
                 ImmutableMap.<String, String>builder()
                         .put("query.remote-task.max-error-duration", MAX_ERROR_DURATION.toString())
                         .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
-                        .put("retry-policy", "QUERY")
+                        .put("retry-policy", retryPolicy.toString())
                         .put("retry-initial-delay", "0s")
                         .put("retry-attempts", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
+                        .put("query.initial-hash-partitions", "5")
                         // TODO: re-enable once failure recover supported for this functionality
                         .put("enable-dynamic-filtering", "false")
                         .put("distributed-sort", "false")
