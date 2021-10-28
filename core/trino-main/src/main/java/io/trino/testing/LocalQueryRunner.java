@@ -79,10 +79,10 @@ import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetSessionTask;
 import io.trino.execution.SetTimeZoneTask;
-import io.trino.execution.SplitAssignment;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.TaskSource;
 import io.trino.execution.TruncateTableTask;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -430,7 +430,7 @@ public class LocalQueryRunner
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
                 eventListenerManager,
                 new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl),
+                new SessionPropertyDefaults(nodeInfo),
                 exchangeManagerRegistry);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
@@ -858,8 +858,7 @@ public class LocalQueryRunner
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators,
-                tableExecuteContextManager,
-                exchangeManagerRegistry);
+                tableExecuteContextManager);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
@@ -872,8 +871,8 @@ public class LocalQueryRunner
                 subplan.getFragment().getPartitionedSources(),
                 outputFactory);
 
-        // generate splitAssignments
-        List<SplitAssignment> splitAssignments = new ArrayList<>();
+        // generate sources
+        List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableHandle table = tableScan.getTable();
@@ -891,7 +890,7 @@ public class LocalQueryRunner
                 }
             }
 
-            splitAssignments.add(new SplitAssignment(tableScan.getId(), scheduledSplits.build(), true));
+            sources.add(new TaskSource(tableScan.getId(), scheduledSplits.build(), true));
         }
 
         // create drivers
@@ -910,16 +909,16 @@ public class LocalQueryRunner
             }
         }
 
-        // add split assignments to the drivers
+        // add sources to the drivers
         ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
-        for (SplitAssignment splitAssignment : splitAssignments) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
+        for (TaskSource source : sources) {
+            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
             checkState(driverFactory != null);
             boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
-            for (ScheduledSplit split : splitAssignment.getSplits()) {
+            for (ScheduledSplit split : source.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
-                driver.updateSplitAssignment(new SplitAssignment(split.getPlanNodeId(), ImmutableSet.of(split), true));
+                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
                 drivers.add(driver);
             }
         }
