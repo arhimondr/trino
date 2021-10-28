@@ -148,6 +148,8 @@ public final class SystemSessionProperties
     public static final String RETRY_POLICY = "retry_policy";
     public static final String RETRY_ATTEMPTS = "retry_attempts";
     public static final String RETRY_DELAY = "retry_delay";
+    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -681,6 +683,16 @@ public final class SystemSessionProperties
                         RETRY_DELAY,
                         "Delay before initiating a retry",
                         featuresConfig.getRetryDelay(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
+                        "Target size of all task inputs for a single fault tolerant task",
+                        featuresConfig.getFaultTolerantExecutionTargetTaskInputSize(),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT,
+                        "Target number of splits for a single fault tolerant task",
+                        featuresConfig.getFaultTolerantExecutionTargetTaskSplitCount(),
                         false));
     }
 
@@ -1206,6 +1218,11 @@ public final class SystemSessionProperties
                 throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
             }
         }
+        if (retryPolicy == RetryPolicy.TASK) {
+            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
+            }
+        }
         return retryPolicy;
     }
 
@@ -1217,5 +1234,15 @@ public final class SystemSessionProperties
     public static Duration getRetryDelay(Session session)
     {
         return session.getSystemProperty(RETRY_DELAY, Duration.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionTargetTaskInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionTargetTaskSplitCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT, Integer.class);
     }
 }

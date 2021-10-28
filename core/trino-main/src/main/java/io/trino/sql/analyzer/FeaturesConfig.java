@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
@@ -148,6 +149,9 @@ public class FeaturesConfig
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int retryAttempts = 4;
     private Duration retryDelay = new Duration(10, SECONDS);
+
+    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
+    private int faultTolerantExecutionTargetTaskSplitCount = 16;
 
     public enum JoinReorderingStrategy
     {
@@ -1146,6 +1150,32 @@ public class FeaturesConfig
     public FeaturesConfig setRetryDelay(Duration retryDelay)
     {
         this.retryDelay = retryDelay;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionTargetTaskInputSize()
+    {
+        return faultTolerantExecutionTargetTaskInputSize;
+    }
+
+    @Config("fault-tolerant-execution-target-task-input-size")
+    public FeaturesConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
+    {
+        this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionTargetTaskSplitCount()
+    {
+        return faultTolerantExecutionTargetTaskSplitCount;
+    }
+
+    @Config("fault-tolerant-execution-target-task-split-count")
+    public FeaturesConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
+    {
+        this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
         return this;
     }
 }
