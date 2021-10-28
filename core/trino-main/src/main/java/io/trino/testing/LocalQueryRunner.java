@@ -51,6 +51,7 @@ import io.trino.cost.StatsNormalizer;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
 import io.trino.execution.CreateTableTask;
@@ -282,6 +283,7 @@ public class LocalQueryRunner
     private final JoinCompiler joinCompiler;
     private final ConnectorManager connectorManager;
     private final PluginManager pluginManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     private final TaskManagerConfig taskManagerConfig;
@@ -382,6 +384,7 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         NodeInfo nodeInfo = new NodeInfo("test");
+        HandleResolver handleResolver = new HandleResolver();
         this.connectorManager = new ConnectorManager(
                 metadata,
                 catalogManager,
@@ -391,7 +394,7 @@ public class LocalQueryRunner
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                new HandleResolver(),
+                handleResolver,
                 nodeManager,
                 nodeInfo,
                 testingVersionEmbedder(),
@@ -415,6 +418,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata, transactionManager)),
                 ImmutableSet.of());
 
+        exchangeManagerRegistry = new ExchangeManagerRegistry(handleResolver);
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 connectorManager,
@@ -426,7 +430,8 @@ public class LocalQueryRunner
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
                 eventListenerManager,
                 new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl));
+                new SessionPropertyDefaults(nodeInfo, accessControl),
+                exchangeManagerRegistry);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
