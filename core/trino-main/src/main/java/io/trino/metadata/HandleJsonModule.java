@@ -27,6 +27,8 @@ import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.shuffle.ShuffleHandle;
+import io.trino.spi.shuffle.ShufflePartitionHandle;
 
 public class HandleJsonModule
         implements Module
@@ -95,5 +97,17 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module partitioningHandleModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorPartitioningHandle.class, resolver::getId, resolver::getPartitioningHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module shuffleHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ShuffleHandle.class, (clazz) -> "sh", (name) -> resolver.getShuffleHandleClass()) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module shufflePartitionHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ShufflePartitionHandle.class, (clazz) -> "sph", (name) -> resolver.getShufflePartitionHandleClass()) {};
     }
 }

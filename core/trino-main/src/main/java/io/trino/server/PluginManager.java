@@ -24,6 +24,7 @@ import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
+import io.trino.shuffle.ShuffleServiceManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -36,6 +37,7 @@ import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.shuffle.ShuffleServiceFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
@@ -75,6 +77,7 @@ public class PluginManager
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
+    private final ShuffleServiceManager shuffleServiceManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
@@ -91,7 +94,8 @@ public class PluginManager
             Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
-            SessionPropertyDefaults sessionPropertyDefaults)
+            SessionPropertyDefaults sessionPropertyDefaults,
+            ShuffleServiceManager shuffleServiceManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
@@ -104,6 +108,7 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.shuffleServiceManager = requireNonNull(shuffleServiceManager, "shuffleServiceManager is null");
     }
 
     public void loadPlugins()
@@ -224,6 +229,11 @@ public class PluginManager
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
+
+        for (ShuffleServiceFactory shuffleServiceFactory : plugin.getShuffleServiceFactories()) {
+            log.info("Registering shuffle service %s", shuffleServiceFactory.getName());
+            shuffleServiceManager.addShuffleServiceFactory(shuffleServiceFactory);
         }
     }
 
