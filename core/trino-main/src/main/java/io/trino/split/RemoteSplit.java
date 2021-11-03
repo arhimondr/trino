@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
+import io.trino.spi.exchange.ShufflePartitionHandle;
 
 import java.net.URI;
 import java.util.List;

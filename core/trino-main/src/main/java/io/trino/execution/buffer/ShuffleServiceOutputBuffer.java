@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.spi.shuffle.ShuffleOutput;
+import io.trino.spi.exchange.ShuffleOutput;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;

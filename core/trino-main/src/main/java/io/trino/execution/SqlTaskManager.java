@@ -40,7 +40,7 @@ import io.trino.memory.MemoryPoolAssignment;
 import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;

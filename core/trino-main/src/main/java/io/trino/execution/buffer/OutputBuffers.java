@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.shuffle.ShuffleHandle;
+import io.trino.spi.exchange.ShuffleHandle;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;

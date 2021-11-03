@@ -30,7 +30,7 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.metadata.HandleResolver;
 import io.trino.operator.TaskContext;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.predicate.Domain;

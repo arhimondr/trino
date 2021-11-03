@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
 
-public interface ShufflePartitionHandle
+import java.util.Map;
+
+public interface ExchangeManagerFactory
 {
-    int getPartitionId();
+    String getName();
 
-    long getPartitionDataSizeInBytes();
+    ExchangeManager create(Map<String, String> config);
+
+    ExchangeManagerHandleResolver getHandleResolver();
 }

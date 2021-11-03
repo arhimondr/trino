@@ -30,7 +30,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;

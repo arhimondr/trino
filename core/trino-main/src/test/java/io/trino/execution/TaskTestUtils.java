@@ -34,7 +34,7 @@ import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;

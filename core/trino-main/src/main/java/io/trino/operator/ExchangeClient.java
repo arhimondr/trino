@@ -47,7 +47,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ExchangeClient
+public class HttpExchangeClient
         implements Closeable
 {
     private final String selfAddress;

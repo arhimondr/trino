@@ -27,8 +27,8 @@ import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
+import io.trino.spi.exchange.ShuffleHandle;
+import io.trino.spi.exchange.ShufflePartitionHandle;
 
 public class HandleJsonModule
         implements Module

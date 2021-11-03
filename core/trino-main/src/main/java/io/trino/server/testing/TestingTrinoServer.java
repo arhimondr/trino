@@ -44,6 +44,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.FailureInjectionService;
 import io.trino.execution.FailureInjectionService.InjectedFailureType;
 import io.trino.execution.QueryInfo;
@@ -70,8 +71,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
-import io.trino.server.testing.shuffle.LocalFileSystemShuffleServiceFactory;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -256,7 +256,7 @@ public class TestingTrinoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
-                    binder.bind(ShuffleServiceManager.class).in(Scopes.SINGLETON);
+                    binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri.isPresent()) {
@@ -333,9 +333,10 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        ShuffleServiceManager shuffleServiceManager = injector.getInstance(ShuffleServiceManager.class);
-        shuffleServiceManager.addShuffleServiceFactory(new LocalFileSystemShuffleServiceFactory());
-        shuffleServiceManager.loadShuffleService("local", ImmutableMap.of("base-directory", System.getProperty("java.io.tmpdir") + "/testing-shuffle-service"));
+        ExchangeManagerRegistry exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        exchangeManagerRegistry.addExchangeManagerFactory(new LocalFileSystemExchangeManagerFactory());
+        exchangeManagerRegistry.loadExchangeManager("local", ImmutableMap.of(
+                "base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
 
         announcer.forceAnnounce();
 

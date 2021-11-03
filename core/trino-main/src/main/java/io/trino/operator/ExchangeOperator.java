@@ -23,11 +23,11 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
-import io.trino.spi.shuffle.ShuffleInput;
-import io.trino.spi.shuffle.ShuffleService;
+import io.trino.spi.exchange.ShuffleInput;
+import io.trino.spi.exchange.ShuffleService;
 import io.trino.split.RemoteSplit;
 import io.trino.split.RemoteSplit.RemoteTaskInput;
 import io.trino.split.RemoteSplit.ShuffleServiceInput;
@@ -218,7 +218,7 @@ public class ExchangeOperator
         pageInput.close();
     }
 
-    private interface PageInput
+    private interface ExchangeDataSource
             extends Closeable
     {
         SerializedPage pollPage();
@@ -237,7 +237,7 @@ public class ExchangeOperator
         void close();
     }
 
-    private static class LazyPageInput
+    private static class LazyExchangeDataSource
             implements PageInput
     {
         private final ExchangeClientSupplier exchangeClientSupplier;
@@ -441,7 +441,7 @@ public class ExchangeOperator
         }
     }
 
-    private static class ShuffleServicePageInput
+    private static class ExternalExchangeDataSource
             implements PageInput
     {
         private final ShuffleInput shuffleInput;

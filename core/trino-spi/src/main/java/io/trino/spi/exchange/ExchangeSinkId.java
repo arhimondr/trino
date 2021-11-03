@@ -11,15 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
 
-import java.util.Map;
-
-public interface ShuffleServiceFactory
+public interface ExchangeSinkId
 {
-    String getName();
-
-    ShuffleService create(Map<String, String> config);
-
-    ShuffleServiceHandleResolver getHandleResolver();
 }

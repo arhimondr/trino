@@ -11,18 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.shuffle;
+package io.trino.spi.exchange;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-
-public class ShuffleServiceModule
-        implements Module
+public interface ExchangeSourceHandle
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(ShuffleServiceManager.class).in(Scopes.SINGLETON);
-    }
 }

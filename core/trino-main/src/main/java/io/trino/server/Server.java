@@ -40,6 +40,8 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
+import io.trino.exchange.ExchangeManagerModule;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
@@ -52,8 +54,6 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
-import io.trino.shuffle.ShuffleServiceManager;
-import io.trino.shuffle.ShuffleServiceModule;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -106,7 +106,7 @@ public class Server
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
-                new ShuffleServiceModule(),
+                new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
@@ -137,7 +137,7 @@ public class Server
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
-            injector.getInstance(ShuffleServiceManager.class).loadShuffleService();
+            injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);

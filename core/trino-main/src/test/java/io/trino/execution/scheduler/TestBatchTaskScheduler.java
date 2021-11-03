@@ -37,7 +37,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.shuffle.Shuffle;
+import io.trino.spi.exchange.Shuffle;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;

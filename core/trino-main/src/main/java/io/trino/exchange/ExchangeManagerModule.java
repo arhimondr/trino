@@ -11,19 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing.shuffle;
+package io.trino.exchange;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.server.testing.exchange.LocalFileSystemShuffleServiceFactory;
-import io.trino.spi.exchange.ShuffleService;
-import io.trino.testing.AbstractTestShuffleService;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public class TestLocalFileSystemShuffleService
-        extends AbstractTestShuffleService
+public class ExchangeManagerModule
+        implements Module
 {
     @Override
-    protected ShuffleService createShuffleService()
+    public void configure(Binder binder)
     {
-        return new LocalFileSystemShuffleServiceFactory().create(ImmutableMap.of());
+        binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
     }
 }

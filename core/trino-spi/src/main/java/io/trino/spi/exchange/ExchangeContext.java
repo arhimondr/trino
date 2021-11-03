@@ -11,19 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing.shuffle;
+package io.trino.spi.exchange;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.server.testing.exchange.LocalFileSystemShuffleServiceFactory;
-import io.trino.spi.exchange.ShuffleService;
-import io.trino.testing.AbstractTestShuffleService;
+import io.trino.spi.QueryId;
 
-public class TestLocalFileSystemShuffleService
-        extends AbstractTestShuffleService
+import static java.util.Objects.requireNonNull;
+
+public class ExchangeContext
 {
-    @Override
-    protected ShuffleService createShuffleService()
+    private final QueryId queryId;
+    private final int stageId;
+
+    public ExchangeContext(QueryId queryId, int stageId)
     {
-        return new LocalFileSystemShuffleServiceFactory().create(ImmutableMap.of());
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.stageId = stageId;
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
+
+    public int getStageId()
+    {
+        return stageId;
     }
 }

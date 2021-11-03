@@ -11,11 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
 
-import java.util.Set;
+import io.airlift.slice.Slice;
 
-public interface ShuffleLostTaskOutputListener
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.concurrent.CompletableFuture;
+
+@ThreadSafe
+public interface ExchangeSink
 {
-    void outputLost(Set<Integer> outputTaskPartitionIds);
+    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+
+    default CompletableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
+
+    void add(int partitionId, Slice data);
+
+    long getSystemMemoryUsage();
+
+    void finish();
+
+    void abort();
 }

@@ -15,12 +15,12 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.scheduler.TestingShuffle.TestingShufflePartitionHandle;
-import io.trino.spi.shuffle.Shuffle;
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShuffleInput;
-import io.trino.spi.shuffle.ShuffleOutput;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
-import io.trino.spi.shuffle.ShuffleService;
+import io.trino.spi.exchange.Shuffle;
+import io.trino.spi.exchange.ShuffleHandle;
+import io.trino.spi.exchange.ShuffleInput;
+import io.trino.spi.exchange.ShuffleOutput;
+import io.trino.spi.exchange.ShufflePartitionHandle;
+import io.trino.spi.exchange.ShuffleService;
 
 import java.util.List;
 

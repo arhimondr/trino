@@ -11,29 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
+
+import io.airlift.slice.Slice;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public interface Shuffle
+@ThreadSafe
+public interface ExchangeSource
         extends Closeable
 {
-    ShuffleHandle getHandle();
+    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
-    void outputTaskFinished(int outputTaskPartitionId);
+    default CompletableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
 
-    void noMoreOutputTasks(Set<Integer> outputTaskPartitionIds);
+    boolean isFinished();
 
-    void registerLostTaskOutputListener(ShuffleLostTaskOutputListener listener);
+    @Nullable
+    Slice read();
 
-    CompletableFuture<List<ShufflePartitionHandle>> getInputPartitionHandles();
+    long getSystemMemoryUsage();
 
-    CompletableFuture<?> isInputReady();
-
-    // TODO: close shuffles at the end
     @Override
     void close();
 }

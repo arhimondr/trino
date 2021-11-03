@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
+import io.trino.spi.exchange.ShufflePartitionHandle;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Objects;

@@ -23,10 +23,10 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.shuffle.ShuffleServiceManager;
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShuffleOutput;
-import io.trino.spi.shuffle.ShuffleService;
+import io.trino.exchange.ShuffleServiceManager;
+import io.trino.spi.exchange.ShuffleHandle;
+import io.trino.spi.exchange.ShuffleOutput;
+import io.trino.spi.exchange.ShuffleService;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;

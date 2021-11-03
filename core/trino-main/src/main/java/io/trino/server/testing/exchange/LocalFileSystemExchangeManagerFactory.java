@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.shuffle;
+package io.trino.server.testing.exchange;
 
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
-import io.trino.spi.shuffle.ShuffleService;
-import io.trino.spi.shuffle.ShuffleServiceFactory;
-import io.trino.spi.shuffle.ShuffleServiceHandleResolver;
+import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeManagerFactory;
+import io.trino.spi.exchange.ExchangeManagerHandleResolver;
+import io.trino.spi.exchange.ExchangeSinkHandle;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -26,8 +26,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
-public class LocalFileSystemShuffleServiceFactory
-        implements ShuffleServiceFactory
+public class LocalFileSystemExchangeManagerFactory
+        implements ExchangeManagerFactory
 {
     private static final String BASE_DIRECTORY_PROPERTY = "base-directory";
 
@@ -38,7 +38,7 @@ public class LocalFileSystemShuffleServiceFactory
     }
 
     @Override
-    public ShuffleService create(Map<String, String> config)
+    public ExchangeManager create(Map<String, String> config)
     {
         String configuredBaseDirectory = config.get(BASE_DIRECTORY_PROPERTY);
         Path baseDirectory;
@@ -47,30 +47,30 @@ public class LocalFileSystemShuffleServiceFactory
         }
         else {
             try {
-                baseDirectory = Files.createTempDirectory("shuffle-service-");
+                baseDirectory = Files.createTempDirectory("exchange-manager-");
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
-        return new LocalFileSystemShuffleService(baseDirectory);
+        return new LocalFileSystemExchangeManager(baseDirectory);
     }
 
     @Override
-    public ShuffleServiceHandleResolver getHandleResolver()
+    public ExchangeManagerHandleResolver getHandleResolver()
     {
-        return new ShuffleServiceHandleResolver()
+        return new ExchangeManagerHandleResolver()
         {
             @Override
-            public Class<? extends ShuffleHandle> getShuffleHandleClass()
+            public Class<? extends ExchangeSinkHandle> getExchangeSinkHandleClass()
             {
-                return LocalFileSystemShuffleHandle.class;
+                return LocalFileSystemExchangeSinkHandle.class;
             }
 
             @Override
-            public Class<? extends ShufflePartitionHandle> getShufflePartitionHandleClass()
+            public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
             {
-                return LocalFileSystemShufflePartitionHandle.class;
+                return LocalFileSystemExchangeSourceHandle.class;
             }
         };
     }

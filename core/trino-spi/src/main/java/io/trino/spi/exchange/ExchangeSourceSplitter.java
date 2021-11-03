@@ -11,33 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
-
-import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
+package io.trino.spi.exchange;
 
 import java.io.Closeable;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-@ThreadSafe
-public interface ShuffleInput
+public interface ExchangeSourceSplitter
         extends Closeable
 {
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
-    default CompletableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
+    CompletableFuture<?> isBlocked();
 
-    boolean isFinished();
-
-    @Nullable
-    Slice pool();
-
-    long getSystemMemoryUsage();
+    Optional<ExchangeSourceHandle> getNext();
 
     @Override
     void close();

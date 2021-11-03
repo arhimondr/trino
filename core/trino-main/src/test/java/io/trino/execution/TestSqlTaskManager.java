@@ -36,7 +36,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.operator.ExchangeClient;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.QueryId;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;

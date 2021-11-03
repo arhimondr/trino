@@ -133,7 +133,7 @@ import io.trino.operator.window.pattern.LabelEvaluator.EvaluationSupplier;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
 import io.trino.operator.window.pattern.MeasureComputation.MeasureComputationSupplier;
 import io.trino.operator.window.pattern.PhysicalValuePointer;
-import io.trino.shuffle.ShuffleServiceManager;
+import io.trino.exchange.ShuffleServiceManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;

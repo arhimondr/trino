@@ -11,11 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
 
-public interface ShuffleServiceHandleResolver
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.List;
+
+@ThreadSafe
+public interface ExchangeManager
 {
-    Class<? extends ShuffleHandle> getShuffleHandleClass();
+    Exchange create(ExchangeContext context, int partitionCount);
 
-    Class<? extends ShufflePartitionHandle> getShufflePartitionHandleClass();
+    ExchangeSink createSink(ExchangeSinkHandle handle);
+
+    ExchangeSource createSource(List<ExchangeSourceHandle> handles);
 }

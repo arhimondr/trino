@@ -26,9 +26,9 @@ import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
-import io.trino.spi.shuffle.ShuffleServiceHandleResolver;
+import io.trino.spi.exchange.ExchangeManagerHandleResolver;
+import io.trino.spi.exchange.ExchangeSinkHandle;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public final class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> catalogHandleResolvers = new ConcurrentHashMap<>();
-    private final AtomicReference<ShuffleServiceHandleResolver> shuffleServiceHandleResolver = new AtomicReference<>();
+    private final AtomicReference<ExchangeManagerHandleResolver> exchangeManagerHandleResolver = new AtomicReference<>();
 
     @Inject
     public HandleResolver()
@@ -69,9 +69,9 @@ public final class HandleResolver
         checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
     }
 
-    public void setShuffleServiceHandleResolver(ShuffleServiceHandleResolver resolver)
+    public void setExchangeManagerHandleResolver(ExchangeManagerHandleResolver resolver)
     {
-        checkState(shuffleServiceHandleResolver.compareAndSet(null, resolver), "Handle resolver for shuffle service is already set");
+        checkState(exchangeManagerHandleResolver.compareAndSet(null, resolver), "Exchange manager handle resolver is already set");
     }
 
     public void removeCatalogHandleResolver(String catalogName)
@@ -179,18 +179,18 @@ public final class HandleResolver
         return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
-    public Class<? extends ShuffleHandle> getShuffleHandleClass()
+    public Class<? extends ExchangeSinkHandle> getExchangeSinkHandleClass()
     {
-        ShuffleServiceHandleResolver resolver = shuffleServiceHandleResolver.get();
-        checkState(resolver != null, "Handle resolver for shuffle service is not set");
-        return resolver.getShuffleHandleClass();
+        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
+        checkState(resolver != null, "Exchange manager handle resolver is not set");
+        return resolver.getExchangeSinkHandleClass();
     }
 
-    public Class<? extends ShufflePartitionHandle> getShufflePartitionHandleClass()
+    public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
     {
-        ShuffleServiceHandleResolver resolver = shuffleServiceHandleResolver.get();
-        checkState(resolver != null, "Handle resolver for shuffle service is not set");
-        return resolver.getShufflePartitionHandleClass();
+        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
+        checkState(resolver != null, "Exchange manager handle resolver is not set");
+        return resolver.getExchangeSourceHandleHandleClass();
     }
 
     private MaterializedHandleResolver resolverFor(String id)

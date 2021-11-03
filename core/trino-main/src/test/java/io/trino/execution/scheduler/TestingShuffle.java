@@ -15,10 +15,10 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.shuffle.Shuffle;
-import io.trino.spi.shuffle.ShuffleHandle;
-import io.trino.spi.shuffle.ShuffleLostTaskOutputListener;
-import io.trino.spi.shuffle.ShufflePartitionHandle;
+import io.trino.spi.exchange.Shuffle;
+import io.trino.spi.exchange.ShuffleHandle;
+import io.trino.spi.exchange.ShuffleLostTaskOutputListener;
+import io.trino.spi.exchange.ShufflePartitionHandle;
 
 import javax.annotation.concurrent.GuardedBy;
 

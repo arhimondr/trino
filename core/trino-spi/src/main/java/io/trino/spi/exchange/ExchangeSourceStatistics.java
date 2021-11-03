@@ -11,8 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.shuffle;
+package io.trino.spi.exchange;
 
-public interface ShuffleHandle
+public class ExchangeSourceStatistics
 {
+    private final long sizeInBytes;
+
+    public ExchangeSourceStatistics(long sizeInBytes)
+    {
+        this.sizeInBytes = sizeInBytes;
+    }
+
+    public long getSizeInBytes()
+    {
+        return sizeInBytes;
+    }
 }
