@@ -46,8 +46,8 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
-public class DeduplicationExchangeClientBuffer
-        implements ExchangeClientBuffer
+public class DeduplicatingDirectExchangeBuffer
+        implements DirectExchangeBuffer
 {
     private final Executor executor;
     private final long bufferCapacityInBytes;
@@ -81,7 +81,7 @@ public class DeduplicationExchangeClientBuffer
     @GuardedBy("this")
     private boolean closed;
 
-    public DeduplicationExchangeClientBuffer(Executor executor, DataSize bufferCapacity, RetryPolicy retryPolicy)
+    public DeduplicatingDirectExchangeBuffer(Executor executor, DataSize bufferCapacity, RetryPolicy retryPolicy)
     {
         this.executor = requireNonNull(executor, "executor is null");
         this.bufferCapacityInBytes = requireNonNull(bufferCapacity, "bufferCapacity is null").toBytes();
