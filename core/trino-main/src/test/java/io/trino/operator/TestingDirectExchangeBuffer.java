@@ -153,7 +153,7 @@ public class TestingDirectExchangeBuffer
     }
 
     @Override
-    public synchronized long getRemainingCapacityInBytes()
+    public synchronized long getRemainingBufferCapacityInBytes()
     {
         return remainingBufferCapacityInBytes;
     }

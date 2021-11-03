@@ -267,7 +267,8 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task1, location1);
         assertThat(buffer.getAllTasks()).containsExactly(task1);
-        assertTaskIsNotFinished(buffer, task1);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task1).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         processor.setComplete(location1);
         buffer.whenTaskFinished(task1).get(10, SECONDS);
@@ -276,7 +277,8 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task2, location2);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
-        assertTaskIsNotFinished(buffer, task2);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task2).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         processor.setComplete(location2);
         buffer.whenTaskFinished(task2).get(10, SECONDS);
@@ -285,13 +287,15 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task3, location3);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
-        assertTaskIsNotFinished(buffer, task3);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task3).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         exchangeClient.noMoreLocations();
         assertTrue(buffer.isNoMoreTasks());
 
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
-        assertTaskIsNotFinished(buffer, task3);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task3).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         exchangeClient.close();
 
@@ -501,9 +505,6 @@ public class TestDirectExchangeClient
         Set<TaskId> failedTasks = newConcurrentHashSet();
         CountDownLatch latch = new CountDownLatch(2);
 
-        Set<TaskId> failedTasks = newConcurrentHashSet();
-        CountDownLatch latch = new CountDownLatch(2);
-
         @SuppressWarnings("resource")
         DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
@@ -530,7 +531,8 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task1, location1);
         assertThat(buffer.getAllTasks()).containsExactly(task1);
-        assertTaskIsNotFinished(buffer, task1);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task1).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         processor.setComplete(location1);
         buffer.whenTaskFinished(task1).get(10, SECONDS);
@@ -539,7 +541,10 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task2, location2);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
-        assertTaskIsNotFinished(buffer, task2);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task2).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+        assertThatThrownBy(() -> buffer.whenTaskFailed(task2).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         RuntimeException randomException = new RuntimeException("randomfailure");
         processor.setFailed(location2, randomException);
@@ -551,8 +556,10 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task3, location3);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
-        assertTaskIsNotFinished(buffer, task2);
-        assertTaskIsNotFinished(buffer, task3);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task3).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+        assertThatThrownBy(() -> buffer.whenTaskFailed(task3).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         TrinoException trinoException = new TrinoException(GENERIC_INTERNAL_ERROR, "generic internal error");
         processor.setFailed(location3, trinoException);
@@ -568,7 +575,8 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(task4, location4);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3, task4);
-        assertTaskIsNotFinished(buffer, task4);
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task4).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
 
         processor.setComplete(location4);
         buffer.whenTaskFinished(task4).get(10, SECONDS);
@@ -594,12 +602,6 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFailedTasks().asMap().get(task3).iterator().next()).isEqualTo(trinoException);
 
         assertTrue(exchangeClient.isFinished());
-    }
-
-    private static void assertTaskIsNotFinished(TestingDirectExchangeBuffer buffer, TaskId task)
-    {
-        assertThatThrownBy(() -> buffer.whenTaskFinished(task).get(50, MILLISECONDS))
-                .isInstanceOf(TimeoutException.class);
     }
 
     @Test

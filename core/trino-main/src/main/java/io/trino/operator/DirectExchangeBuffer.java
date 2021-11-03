@@ -23,11 +23,6 @@ import java.util.List;
 public interface DirectExchangeBuffer
         extends Closeable
 {
-    /**
-     * This method may be called by multiple independent client concurrently.
-     * Implementations must ensure the cancellation of a future by one of the clients
-     * doesn't cancel futures obtained by other clients.
-     */
     ListenableFuture<Void> isBlocked();
 
     SerializedPage pollPage();
@@ -44,7 +39,7 @@ public interface DirectExchangeBuffer
 
     boolean isFinished();
 
-    long getRemainingCapacityInBytes();
+    long getRemainingBufferCapacityInBytes();
 
     long getRetainedSizeInBytes();
 
