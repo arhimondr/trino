@@ -428,6 +428,13 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
     }
 
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadExchangeManager(name, properties);
+        }
+    }
+
     private boolean isConnectionVisibleToAllNodes(CatalogName catalogName)
     {
         for (TestingTrinoServer server : servers) {
