@@ -94,8 +94,9 @@ public class DefaultPagePartitioner
         this.nullChannel = requireNonNull(nullChannel, "nullChannel is null").orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
-        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.serde = requireNonNull(serdeFactory, "serdeFactory is null")
+                .createPagesSerde(operatorContext.getSession().getBufferCipher());
 
         //  Ensure partition channels align with constant arguments provided
         for (int i = 0; i < this.partitionChannels.length; i++) {

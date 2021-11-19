@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spiller;
+package io.trino.execution.buffer;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.TrinoException;
@@ -29,8 +29,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 @VisibleForTesting
-public final class AesSpillCipher
-        implements SpillCipher
+public final class AesBufferCipher
+        implements BufferCipher
 {
     //  256-bit AES CBC mode
     private static final String CIPHER_NAME = "AES/CBC/PKCS5Padding";
@@ -42,7 +42,7 @@ public final class AesSpillCipher
     private final int ivBytes;
 
     @VisibleForTesting
-    public AesSpillCipher()
+    public AesBufferCipher()
     {
         this.key = generateNewSecretKey();
         this.encryptSizer = createEncryptCipher(key);
@@ -103,10 +103,10 @@ public final class AesSpillCipher
     public void close()
     {
         /*
-         * Setting the {@link AesSpillCipher#key} to null allows the key to be reclaimed by GC at the time of
-         * destruction, even if the {@link AesSpillCipher} itself is still reachable for longer. When the key
+         * Setting the {@link AesBufferCipher#key} to null allows the key to be reclaimed by GC at the time of
+         * destruction, even if the {@link AesBufferCipher} itself is still reachable for longer. When the key
          * is null, subsequent encrypt / decrypt operations will fail and can prevent accidental use beyond the
-         * intended lifespan of the {@link AesSpillCipher}.
+         * intended lifespan of the {@link AesBufferCipher}.
          */
         this.key = null;
         this.encryptSizer = null;

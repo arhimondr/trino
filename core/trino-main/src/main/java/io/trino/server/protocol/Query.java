@@ -246,7 +246,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+                .createPagesSerde(session.getBufferCipher());
     }
 
     public void cancel()
@@ -548,6 +549,7 @@ class Query
         if ((queryInfo.getState() == FAILED) ||
                 (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
+            session.close();
         }
     }
 

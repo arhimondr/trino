@@ -100,7 +100,7 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createPagesSerde());
+                    serdeFactory.createPagesSerde(operatorContext.getSession().getBufferCipher()));
         }
 
         @Override

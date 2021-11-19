@@ -21,6 +21,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogName;
+import io.trino.execution.buffer.AesBufferCipher;
+import io.trino.execution.buffer.BufferCipher;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -45,10 +47,12 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.isExchangeEncryptionEnabled;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
@@ -58,6 +62,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class Session
 {
+    private static final Map<QueryId, BufferCipher> bufferCiphers = new ConcurrentHashMap<>();
+
     private final QueryId queryId;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
@@ -301,6 +307,24 @@ public final class Session
     public ProtocolHeaders getProtocolHeaders()
     {
         return protocolHeaders;
+    }
+
+    public Optional<BufferCipher> getBufferCipher()
+    {
+        if (isExchangeEncryptionEnabled(this)) {
+            return Optional.of(bufferCiphers.computeIfAbsent(queryId, ignore -> new AesBufferCipher()));
+        }
+        else {
+            return Optional.empty();
+        }
+    }
+
+    public void close()
+    {
+        BufferCipher bufferCipher = bufferCiphers.remove(queryId);
+        if (bufferCipher != null) {
+            bufferCipher.close();
+        }
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)

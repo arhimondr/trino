@@ -14,6 +14,8 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.execution.buffer.AesBufferCipher;
+import io.trino.execution.buffer.BufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
@@ -34,13 +36,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
-public class TestSpillCipherPagesSerde
+public class TestBufferCipherPagesSerde
 {
     @Test
     public void test()
     {
-        SpillCipher cipher = new AesSpillCipher();
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerdeForSpill(Optional.of(cipher));
+        BufferCipher cipher = new AesBufferCipher();
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.of(cipher));
         List<Type> types = ImmutableList.of(VARCHAR);
         Page emptyPage = new Page(VARCHAR.createBlockBuilder(null, 0).build());
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {

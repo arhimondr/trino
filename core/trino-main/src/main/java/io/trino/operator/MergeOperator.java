@@ -98,7 +98,7 @@ public class MergeOperator
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createPagesSerde(),
+                    serdeFactory.createPagesSerde(operatorContext.getSession().getBufferCipher()),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
