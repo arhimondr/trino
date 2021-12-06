@@ -97,6 +97,7 @@ import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 public class DynamicFilterService
@@ -158,13 +159,21 @@ public class DynamicFilterService
             Set<DynamicFilterId> lazyDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
-        Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
-                .collect(toImmutableMap(filter -> filter, filter -> SettableFuture.create()));
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
                 session,
                 dynamicFilters,
-                lazyDynamicFilterFutures,
+                lazyDynamicFilters,
                 replicatedDynamicFilters));
+    }
+
+    public void registerQueryRetry(QueryId queryId)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // dynamic filtering is not enabled
+            return;
+        }
+        context.resetForQueryRetry();
     }
 
     public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
@@ -672,22 +681,40 @@ public class DynamicFilterService
         // This should not be a ConcurrentHashMap because we want to prevent concurrent addition of new consumers during the
         // removal of existing consumers from this map in addDynamicFilters. This ensures that new consumers don't miss filter completion.
         private final Map<DynamicFilterId, List<Consumer<Map<DynamicFilterId, Domain>>>> dynamicFilterConsumers = new HashMap<>();
-        private final long queryStartTime = System.nanoTime();
+        private long queryAttemptStartTime = System.nanoTime();
 
         private DynamicFilterContext(
                 Session session,
                 Set<DynamicFilterId> dynamicFilters,
-                Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters,
+                Set<DynamicFilterId> lazyDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters)
         {
             this.session = requireNonNull(session, "session is null");
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
-            this.lazyDynamicFilters = requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
+            this.lazyDynamicFilters = requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null").stream()
+                .collect(toMap(identity(), filter -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
             dynamicFilters.forEach(filter -> {
                 taskDynamicFilters.put(filter, new ConcurrentHashMap<>());
                 dynamicFilterConsumers.put(filter, new ArrayList<>());
             });
+        }
+
+        void resetForQueryRetry()
+        {
+            dynamicFilterSummaries.clear();
+            dynamicFilterCollectionTime.clear();
+            lazyDynamicFilters.replaceAll((filterId, currentFuture) -> {
+                currentFuture.set(null);
+                return SettableFuture.create();
+            });
+
+            stageNumberOfTasks.clear();
+            dynamicFilters.forEach(filter -> {
+                taskDynamicFilters.put(filter, new ConcurrentHashMap<>());
+                dynamicFilterConsumers.put(filter, new ArrayList<>());
+            });
+            queryAttemptStartTime = System.nanoTime();
         }
 
         void addDynamicFilterConsumer(Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
@@ -810,7 +837,7 @@ public class DynamicFilterService
                 return Optional.empty();
             }
 
-            return Optional.of(succinctNanos(filterCollectionTime - queryStartTime));
+            return Optional.of(succinctNanos(filterCollectionTime - queryAttemptStartTime));
         }
     }
 

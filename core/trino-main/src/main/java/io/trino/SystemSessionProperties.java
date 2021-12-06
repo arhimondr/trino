@@ -1215,8 +1215,8 @@ public final class SystemSessionProperties
     {
         RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
         if (retryPolicy != RetryPolicy.NONE) {
-            if (isEnableDynamicFiltering(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
+            if (retryPolicy != RetryPolicy.QUERY && isEnableDynamicFiltering(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
             }
             if (isDistributedSortEnabled(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
