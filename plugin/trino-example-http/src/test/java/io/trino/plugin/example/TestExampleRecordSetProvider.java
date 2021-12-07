@@ -35,7 +35,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestExampleRecordSetProvider
 {
     private ExampleHttpServer exampleHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testGetRecordSet()
@@ -69,7 +69,7 @@ public class TestExampleRecordSetProvider
     public void setUp()
     {
         exampleHttpServer = new ExampleHttpServer();
-        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
+        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv").toString();
     }
 
     @AfterClass(alwaysRun = true)

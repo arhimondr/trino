@@ -33,7 +33,7 @@ import static org.testng.Assert.assertFalse;
 public class TestExampleRecordSet
 {
     private ExampleHttpServer exampleHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testGetColumnTypes()
@@ -115,7 +115,7 @@ public class TestExampleRecordSet
     public void setUp()
     {
         exampleHttpServer = new ExampleHttpServer();
-        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
+        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv").toString();
     }
 
     @AfterClass(alwaysRun = true)
