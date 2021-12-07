@@ -34,6 +34,7 @@ import io.trino.split.RemoteSplit.ExternalExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
+import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -419,7 +420,7 @@ public class ExchangeOperator
         public void addSplit(RemoteSplit remoteSplit)
         {
             DirectExchangeInput taskInput = (DirectExchangeInput) remoteSplit.getExchangeInput();
-            directExchangeClient.addLocation(taskInput.getTaskId(), taskInput.getLocation());
+            directExchangeClient.addLocation(taskInput.getTaskId(), URI.create(taskInput.getLocation()));
         }
 
         @Override

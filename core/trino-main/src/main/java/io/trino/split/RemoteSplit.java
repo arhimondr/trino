@@ -23,7 +23,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -86,10 +85,10 @@ public class RemoteSplit
             implements ExchangeInput
     {
         private final TaskId taskId;
-        private final URI location;
+        private final String location;
 
         @JsonCreator
-        public DirectExchangeInput(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+        public DirectExchangeInput(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") String location)
         {
             this.taskId = requireNonNull(taskId, "taskId is null");
             this.location = requireNonNull(location, "location is null");
@@ -102,7 +101,7 @@ public class RemoteSplit
         }
 
         @JsonProperty
-        public URI getLocation()
+        public String getLocation()
         {
             return location;
         }
