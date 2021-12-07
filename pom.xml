@@ -1569,6 +1569,13 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>1.26</version>
             </dependency>
+
+            <!-- TODO -->
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>slice</artifactId>
+                <version>0.41-SNAPSHOT</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
