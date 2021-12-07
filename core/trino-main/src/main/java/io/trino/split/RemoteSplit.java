@@ -22,15 +22,19 @@ import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+
     private final ExchangeInput exchangeInput;
 
     @JsonCreator
@@ -71,6 +75,12 @@ public class RemoteSplit
                 .toString();
     }
 
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + exchangeInput.getRetainedSizeInBytes();
+    }
+
     @JsonTypeInfo(
             use = JsonTypeInfo.Id.NAME,
             property = "@type")
@@ -79,11 +89,14 @@ public class RemoteSplit
             @JsonSubTypes.Type(value = ExternalExchangeInput.class, name = "external")})
     public interface ExchangeInput
     {
+        long getRetainedSizeInBytes();
     }
 
     public static class DirectExchangeInput
             implements ExchangeInput
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DirectExchangeInput.class).instanceSize();
+
         private final TaskId taskId;
         private final String location;
 
@@ -114,11 +127,21 @@ public class RemoteSplit
                     .add("location", location)
                     .toString();
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + taskId.getRetainedSizeInBytes()
+                    + estimatedSizeOf(location);
+        }
     }
 
     public static class ExternalExchangeInput
             implements ExchangeInput
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ExternalExchangeInput.class).instanceSize();
+
         private final List<ExchangeSourceHandle> exchangeSourceHandles;
 
         @JsonCreator
@@ -139,6 +162,13 @@ public class RemoteSplit
             return toStringHelper(this)
                     .add("exchangeSourceHandles", exchangeSourceHandles)
                     .toString();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(exchangeSourceHandles, ExchangeSourceHandle::getRetainedSizeInBytes);
         }
     }
 }
