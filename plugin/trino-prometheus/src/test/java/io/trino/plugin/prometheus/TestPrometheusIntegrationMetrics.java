@@ -123,7 +123,7 @@ public class TestPrometheusIntegrationMetrics
     @Test
     public void testGetColumnTypes()
     {
-        URI dataUri = server.getUri();
+        String dataUri = server.getUri().toString();
         RecordSet recordSet = new PrometheusRecordSet(
                 client,
                 new PrometheusSplit(dataUri),

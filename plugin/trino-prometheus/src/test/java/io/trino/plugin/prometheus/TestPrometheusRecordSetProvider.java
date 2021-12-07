@@ -47,14 +47,14 @@ public class TestPrometheusRecordSetProvider
     private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
 
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
     private PrometheusClient client;
 
     @BeforeClass
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
         client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TYPE_MANAGER);
     }
 

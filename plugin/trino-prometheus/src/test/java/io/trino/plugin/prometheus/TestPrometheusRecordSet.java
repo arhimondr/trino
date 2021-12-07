@@ -47,7 +47,7 @@ public class TestPrometheusRecordSet
     private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
 
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testCursorSimple()
@@ -101,7 +101,7 @@ public class TestPrometheusRecordSet
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
     }
 
     @AfterClass(alwaysRun = true)
