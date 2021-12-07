@@ -24,6 +24,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,6 +69,7 @@ public class LocalFileSystemExchangeManager
         List<Path> files = handles.stream()
                 .map(LocalFileSystemExchangeSourceHandle.class::cast)
                 .flatMap(handle -> handle.getFiles().stream())
+                .map(Paths::get)
                 .collect(toImmutableList());
         return new LocalFileSystemExchangeSource(files);
     }

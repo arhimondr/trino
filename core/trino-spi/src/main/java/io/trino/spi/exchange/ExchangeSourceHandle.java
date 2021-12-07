@@ -19,4 +19,6 @@ package io.trino.spi.exchange;
 public interface ExchangeSourceHandle
 {
     int getPartitionId();
+
+    long getRetainedSizeInBytes();
 }

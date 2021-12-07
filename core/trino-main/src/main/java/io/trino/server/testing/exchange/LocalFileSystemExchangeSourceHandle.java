@@ -16,21 +16,25 @@ package io.trino.server.testing.exchange;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.nio.file.Path;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileSystemExchangeSourceHandle
         implements ExchangeSourceHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalFileSystemExchangeSourceHandle.class).instanceSize();
+
     private final int partitionId;
-    private final List<Path> files;
+    private final List<String> files;
 
     @JsonCreator
-    public LocalFileSystemExchangeSourceHandle(@JsonProperty("partitionId") int partitionId, @JsonProperty("files") List<Path> files)
+    public LocalFileSystemExchangeSourceHandle(@JsonProperty("partitionId") int partitionId, @JsonProperty("files") List<String> files)
     {
         this.partitionId = partitionId;
         this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
@@ -44,8 +48,15 @@ public class LocalFileSystemExchangeSourceHandle
     }
 
     @JsonProperty
-    public List<Path> getFiles()
+    public List<String> getFiles()
     {
         return files;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(files, SizeOf::estimatedSizeOf);
     }
 }

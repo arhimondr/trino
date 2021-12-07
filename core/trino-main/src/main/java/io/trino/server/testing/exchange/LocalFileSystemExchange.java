@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -149,11 +150,11 @@ public class LocalFileSystemExchange
 
     private synchronized List<ExchangeSourceHandle> createExchangeSourceHandles()
     {
-        Multimap<Integer, Path> partitionFilesMap = ArrayListMultimap.create();
+        Multimap<Integer, String> partitionFilesMap = ArrayListMultimap.create();
         for (LocalFileSystemExchangeSinkHandle sinkHandle : finishedSinks) {
             Path committedAttemptPath = getCommittedAttemptPath(sinkHandle);
             Map<Integer, Path> partitions = getCommittedPartitions(committedAttemptPath);
-            partitions.forEach(partitionFilesMap::put);
+            partitions.forEach((partition, file) -> partitionFilesMap.put(partition, file.toAbsolutePath().toString()));
         }
 
         ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
@@ -227,7 +228,7 @@ public class LocalFileSystemExchange
     {
         // always split for testing
         LocalFileSystemExchangeSourceHandle localHandle = (LocalFileSystemExchangeSourceHandle) handle;
-        Iterator<Path> filesIterator = localHandle.getFiles().iterator();
+        Iterator<String> filesIterator = localHandle.getFiles().iterator();
         return new ExchangeSourceSplitter()
         {
             @Override
@@ -257,9 +258,9 @@ public class LocalFileSystemExchange
     {
         LocalFileSystemExchangeSourceHandle localHandle = (LocalFileSystemExchangeSourceHandle) handle;
         long sizeInBytes = 0;
-        for (Path file : localHandle.getFiles()) {
+        for (String file : localHandle.getFiles()) {
             try {
-                sizeInBytes += Files.size(file);
+                sizeInBytes += Files.size(Paths.get(file));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
