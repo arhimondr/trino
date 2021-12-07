@@ -30,4 +30,6 @@ public interface ConnectorSplit
     {
         return SplitWeight.standard();
     }
+
+    long getRetainedSizeInBytes();
 }

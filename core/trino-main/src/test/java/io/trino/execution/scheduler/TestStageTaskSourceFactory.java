@@ -39,6 +39,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -48,6 +49,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -532,6 +535,8 @@ public class TestStageTaskSourceFactory
     private static class TestingConnectorSplit
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingConnectorSplit.class).instanceSize();
+
         private final int id;
         private final OptionalInt bucket;
         private final Optional<List<HostAddress>> addresses;
@@ -569,6 +574,14 @@ public class TestStageTaskSourceFactory
         public Object getInfo()
         {
             return null;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + sizeOf(bucket)
+                    + sizeOf(addresses, value -> estimatedSizeOf(value, HostAddress::getRetainedSizeInBytes));
         }
 
         @Override

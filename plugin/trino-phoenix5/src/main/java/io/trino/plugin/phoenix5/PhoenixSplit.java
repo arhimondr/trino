@@ -59,4 +59,10 @@ public class PhoenixSplit
     {
         return phoenixInputSplit.getPhoenixInputSplit();
     }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+//        throw new UnsupportedOperationException();
+    }
 }
