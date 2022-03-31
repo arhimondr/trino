@@ -52,13 +52,13 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTargetMaxFileSize()
     {
-        testTargetMaxFileSize(1);
+        testTargetMaxFileSize(14);
     }
 
     @Override
     public void testTargetMaxFileSizePartitioned()
     {
-        testTargetMaxFileSizePartitioned(1);
+        testTargetMaxFileSizePartitioned(14);
     }
 
     @Override

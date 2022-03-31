@@ -89,6 +89,7 @@ public class MinioStorage
                 .put("exchange.base-directory", "s3n://" + minioStorage.getBucketName())
                 // TODO: enable exchange encryption after https is supported for Trino MinIO
                 .put("exchange.encryption-enabled", "false")
+                .put("exchange.sink-max-file-size", "10MB")
                 .put("exchange.s3.aws-access-key", MinioStorage.ACCESS_KEY)
                 .put("exchange.s3.aws-secret-key", MinioStorage.SECRET_KEY)
                 .put("exchange.s3.region", "us-east-1")
