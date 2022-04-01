@@ -269,7 +269,7 @@ public class FileSystemExchangeSink
                 throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
             }
 
-            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes) {
+            if (currentFileSize > 0 && currentFileSize + requiredPageStorageSize > maxFileSizeInBytes) {
                 flushIfNeeded(true);
                 updateCurrentWriter();
                 currentFileSize = 0;
