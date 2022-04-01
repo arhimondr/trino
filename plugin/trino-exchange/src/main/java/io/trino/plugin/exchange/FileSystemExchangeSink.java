@@ -287,7 +287,7 @@ public class FileSystemExchangeSink
             if (closed) {
                 return immediateFailedFuture(new IllegalStateException("BufferedStorageWriter has already closed"));
             }
-            
+
             flushIfNeeded(true);
             if (writers.size() == 1) {
                 return currentWriter.finish();
