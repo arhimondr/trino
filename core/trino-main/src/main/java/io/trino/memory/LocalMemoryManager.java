@@ -41,7 +41,7 @@ public final class LocalMemoryManager
     LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
         requireNonNull(config, "config is null");
-        validateHeapHeadroom(config, availableMemory);
+//        validateHeapHeadroom(config, availableMemory);
         DataSize memoryPoolSize = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
         verify(memoryPoolSize.toBytes() > 0, "memory pool size is 0");
         memoryPool = new MemoryPool(memoryPoolSize);
