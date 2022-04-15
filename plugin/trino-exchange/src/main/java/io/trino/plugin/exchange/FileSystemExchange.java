@@ -36,9 +36,12 @@ import java.security.Key;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,6 +68,8 @@ public class FileSystemExchange
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
     private final ExecutorService executor;
+
+    private final Map<Integer, String> obscuredTaskPartitionIds = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private final Set<Integer> allSinks = new HashSet<>();
@@ -93,16 +98,6 @@ public class FileSystemExchange
         this.executor = requireNonNull(executor, "executor is null");
     }
 
-    public void initialize()
-    {
-        try {
-            exchangeStorage.createDirectories(getExchangeDirectory());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @Override
     public synchronized ExchangeSinkHandle addSink(int taskPartition)
     {
@@ -124,9 +119,7 @@ public class FileSystemExchange
     public ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         FileSystemExchangeSinkHandle fileSystemExchangeSinkHandle = (FileSystemExchangeSinkHandle) sinkHandle;
-        URI outputDirectory = getExchangeDirectory()
-                .resolve(fileSystemExchangeSinkHandle.getPartitionId() + PATH_SEPARATOR)
-                .resolve(taskAttemptId + PATH_SEPARATOR);
+        URI outputDirectory = getTaskOutputDirectory(fileSystemExchangeSinkHandle.getPartitionId()).resolve(taskAttemptId + PATH_SEPARATOR);
         try {
             exchangeStorage.createDirectories(outputDirectory);
         }
@@ -195,7 +188,7 @@ public class FileSystemExchange
 
     private URI getCommittedAttemptPath(Integer taskPartition)
     {
-        URI sinkOutputBasePath = getExchangeDirectory().resolve(taskPartition + PATH_SEPARATOR);
+        URI sinkOutputBasePath = getTaskOutputDirectory(taskPartition);
         try {
             List<URI> attemptPaths = exchangeStorage.listDirectories(sinkOutputBasePath);
             checkState(!attemptPaths.isEmpty(), "No attempts found under sink output path %s", sinkOutputBasePath);
@@ -242,9 +235,12 @@ public class FileSystemExchange
         }
     }
 
-    private URI getExchangeDirectory()
+    private URI getTaskOutputDirectory(int partitionId)
     {
-        return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + PATH_SEPARATOR);
+        String obscuredTaskPartitionId = obscuredTaskPartitionIds.computeIfAbsent(partitionId, ignored -> UUID.randomUUID().toString().split("-")[0]);
+        // Output file path naming convention: {obscuredTaskPartitionId}.{queryId}.{stageId}.{taskPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
+        // Obscure task partition id to make sure exchange data belonging to the same stage gets evenly distributed
+        return baseDirectory.resolve(obscuredTaskPartitionId + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + partitionId + PATH_SEPARATOR);
     }
 
     @Override
@@ -294,6 +290,8 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        exchangeStorage.deleteRecursively(getExchangeDirectory());
+        for (int partitionId : allSinks) {
+            exchangeStorage.deleteRecursively(getTaskOutputDirectory(partitionId));
+        }
     }
 }
