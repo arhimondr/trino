@@ -30,6 +30,9 @@ import io.trino.client.FailureInfo;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
+import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
@@ -39,7 +42,6 @@ import io.trino.execution.StageInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
@@ -100,7 +102,7 @@ class Query
     private final Optional<URI> queryInfoUrl;
 
     @GuardedBy("this")
-    private final DirectExchangeClient exchangeClient;
+    private final ExchangeDataSource exchangeDataSource;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -165,25 +167,28 @@ class Query
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
             DirectExchangeClientSupplier directExchangeClientSupplier,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        DirectExchangeClient exchangeClient = directExchangeClientSupplier.get(
+        ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
                 session.getQueryId(),
-                new ExchangeId("direct-exchange-query-results"),
+                new ExchangeId("query-results-exchange-" + session.getQueryId()),
+                directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
-                getRetryPolicy(session));
+                getRetryPolicy(session),
+                exchangeManagerRegistry);
 
-        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             if (state.isDone()) {
                 QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
-                result.closeExchangeClientIfNecessary(queryInfo);
+                result.closeExchangeIfNecessary(queryInfo);
             }
         });
 
@@ -195,7 +200,7 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            DirectExchangeClient exchangeClient,
+            ExchangeDataSource exchangeDataSource,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
@@ -204,7 +209,7 @@ class Query
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(queryInfoUrl, "queryInfoUrl is null");
-        requireNonNull(exchangeClient, "exchangeClient is null");
+        requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -214,7 +219,7 @@ class Query
         this.session = session;
         this.slug = slug;
         this.queryInfoUrl = queryInfoUrl;
-        this.exchangeClient = exchangeClient;
+        this.exchangeDataSource = exchangeDataSource;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
@@ -240,7 +245,7 @@ class Query
 
     public synchronized void dispose()
     {
-        exchangeClient.close();
+        exchangeDataSource.close();
     }
 
     public QueryId getQueryId()
@@ -335,8 +340,8 @@ class Query
     private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
-        if (!exchangeClient.isFinished()) {
-            return exchangeClient.isBlocked();
+        if (!exchangeDataSource.isFinished()) {
+            return exchangeDataSource.isBlocked();
         }
 
         // otherwise, wait for the query to finish
@@ -398,7 +403,7 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        closeExchangeClientIfNecessary(queryInfo);
+        closeExchangeIfNecessary(queryInfo);
 
         // fetch result data from exchange
         QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
@@ -416,13 +421,13 @@ class Query
         // (2) there is more data to send (due to buffering)
         //   OR
         // (3) cached query result needs client acknowledgement to discard
-        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (queryInfo.getOutputStage().isPresent() && !resultRows.isEmpty()))) {
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.getOutputStage().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
             nextToken = OptionalLong.empty();
-            // the client is not coming back, make sure the exchangeClient is closed
-            exchangeClient.close();
+            // the client is not coming back, make sure the exchange is closed
+            exchangeDataSource.close();
         }
 
         URI nextResultsUri = null;
@@ -499,7 +504,7 @@ class Query
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             long bytes = 0;
             while (bytes < targetResultBytes) {
-                Slice serializedPage = exchangeClient.pollPage();
+                Slice serializedPage = exchangeDataSource.pollPage();
                 if (serializedPage == null) {
                     break;
                 }
@@ -508,8 +513,8 @@ class Query
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
             }
-            if (exchangeClient.isFinished()) {
-                exchangeClient.close();
+            if (exchangeDataSource.isFinished()) {
+                exchangeDataSource.close();
             }
         }
         catch (Throwable cause) {
@@ -519,14 +524,14 @@ class Query
         return resultBuilder.build();
     }
 
-    private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
+    private synchronized void closeExchangeIfNecessary(QueryInfo queryInfo)
     {
         // Close the exchange client if the query has failed, or if the query
         // is done and it does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
         if ((queryInfo.getState() == FAILED) ||
                 (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
-            exchangeClient.close();
+            exchangeDataSource.close();
         }
     }
 
@@ -561,9 +566,9 @@ class Query
             types = outputInfo.getColumnTypes();
         }
 
-        outputInfo.getBufferLocations().forEach(exchangeClient::addLocation);
-        if (outputInfo.isNoMoreBufferLocations()) {
-            exchangeClient.noMoreLocations();
+        outputInfo.getInputs().forEach(exchangeDataSource::addInput);
+        if (outputInfo.isNoMoreInputs()) {
+            exchangeDataSource.noMoreInputs();
         }
     }
 
