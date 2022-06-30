@@ -30,7 +30,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -1735,7 +1737,7 @@ public class SqlQueryScheduler
                 TaskDescriptorStorage taskDescriptorStorage,
                 ExchangeManager exchangeManager,
                 NodePartitioningManager nodePartitioningManager,
-                TaskLifecycleListener coordinatorTaskLifecycleListener,
+                ExchangeInputConsumer coordinatorExchangeInputConsumer,
                 int taskRetryAttemptsOverall,
                 int taskRetryAttemptsPerTask,
                 int maxTasksWaitingForNodePerStage,
@@ -1768,27 +1770,23 @@ public class SqlQueryScheduler
                 // children to root order
                 List<SqlStage> distributedStagesInReverseTopologicalOrder = reverse(distributedStagesInTopologicalOrder);
 
-                ImmutableSet.Builder<PlanFragmentId> coordinatorConsumedFragmentsBuilder = ImmutableSet.builder();
-
                 checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
                 AtomicInteger remainingTaskRetryAttemptsOverall = new AtomicInteger(taskRetryAttemptsOverall);
                 for (SqlStage stage : distributedStagesInReverseTopologicalOrder) {
                     PlanFragment fragment = stage.getFragment();
+
+                    ExchangeContext exchangeContext = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
+                    Exchange exchange = exchangeManager.createExchange(exchangeContext, partitionCount);
+                    exchanges.put(fragment.getId(), exchange);
+
                     Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
-                    TaskLifecycleListener taskLifecycleListener;
-                    Optional<Exchange> exchange;
                     if (parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly()) {
                         // output will be consumed by coordinator
-                        exchange = Optional.empty();
-                        taskLifecycleListener = coordinatorTaskLifecycleListener;
-                        coordinatorConsumedFragmentsBuilder.add(fragment.getId());
-                    }
-                    else {
-                        // create external exchange
-                        ExchangeContext context = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
-                        exchange = Optional.of(exchangeManager.createExchange(context, partitionCount));
-                        exchanges.put(fragment.getId(), exchange.get());
-                        taskLifecycleListener = TaskLifecycleListener.NO_OP;
+                        exchange.getSourceHandles().thenAccept(handles -> {
+                            SpoolingExchangeInput exchangeInput = new SpoolingExchangeInput(handles);
+                            coordinatorExchangeInputConsumer.addInput(fragment.getId(), exchangeInput);
+                            coordinatorExchangeInputConsumer.noMoreInputs(fragment.getId());
+                        });
                     }
 
                     ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
@@ -1809,7 +1807,6 @@ public class SqlQueryScheduler
                             taskDescriptorStorage,
                             partitionMemoryEstimatorFactory.createPartitionMemoryEstimator(),
                             taskExecutionStats,
-                            taskLifecycleListener,
                             (future, delay) -> scheduledExecutorService.schedule(() -> future.set(null), delay.toMillis(), MILLISECONDS),
                             systemTicker(),
                             exchange,
@@ -1823,13 +1820,6 @@ public class SqlQueryScheduler
 
                     schedulers.add(scheduler);
                 }
-
-                Set<PlanFragmentId> coordinatorConsumedFragments = coordinatorConsumedFragmentsBuilder.build();
-                stateMachine.addStateChangeListener(state -> {
-                    if (state == DistributedStagesSchedulerState.FINISHED) {
-                        coordinatorConsumedFragments.forEach(coordinatorTaskLifecycleListener::noMoreTasks);
-                    }
-                });
 
                 return new FaultTolerantDistributedStagesScheduler(
                         stateMachine,
@@ -2271,5 +2261,12 @@ public class SqlQueryScheduler
         {
             return failedStageId;
         }
+    }
+
+    private interface ExchangeInputConsumer
+    {
+        void addInput(PlanFragmentId fragmentId, ExchangeInput exchangeInput);
+
+        void noMoreInputs(PlanFragmentId fragmentId);
     }
 }
