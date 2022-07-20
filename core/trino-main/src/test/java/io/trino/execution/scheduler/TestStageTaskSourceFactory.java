@@ -132,7 +132,7 @@ public class TestStageTaskSourceFactory
         TestingExchangeSourceHandle sourceHandle123 = new TestingExchangeSourceHandle(0, 123);
         TestingExchangeSourceHandle sourceHandle321 = new TestingExchangeSourceHandle(0, 321);
         Multimap<PlanNodeId, ExchangeSourceHandle> nonReplicatedSources = ImmutableListMultimap.of(PLAN_NODE_1, sourceHandle3);
-        Exchange exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        Exchange exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(sourceHandle3, exchange)),
                 nonReplicatedSources,
@@ -149,7 +149,7 @@ public class TestStageTaskSourceFactory
                 new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
 
         nonReplicatedSources = ImmutableListMultimap.of(PLAN_NODE_1, sourceHandle123);
-        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(sourceHandle123, exchange)),
                 nonReplicatedSources,
@@ -166,7 +166,7 @@ public class TestStageTaskSourceFactory
         nonReplicatedSources = ImmutableListMultimap.of(
                 PLAN_NODE_1, sourceHandle123,
                 PLAN_NODE_2, sourceHandle321);
-        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(
                         sourceHandle123, exchange,
@@ -192,7 +192,7 @@ public class TestStageTaskSourceFactory
                 PLAN_NODE_1, sourceHandle1,
                 PLAN_NODE_1, sourceHandle2,
                 PLAN_NODE_2, sourceHandle4);
-        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(
                         sourceHandle1, exchange,
@@ -226,7 +226,7 @@ public class TestStageTaskSourceFactory
                 PLAN_NODE_1, sourceHandle1,
                 PLAN_NODE_1, sourceHandle3,
                 PLAN_NODE_2, sourceHandle4);
-        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(
                         sourceHandle1, exchange,
@@ -266,7 +266,7 @@ public class TestStageTaskSourceFactory
                 PLAN_NODE_1, sourceHandle4);
         Multimap<PlanNodeId, ExchangeSourceHandle> replicatedSources = ImmutableListMultimap.of(
                 PLAN_NODE_2, sourceHandle321);
-        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         taskSource = new ArbitraryDistributionTaskSource(
                 new IdentityHashMap<>(ImmutableMap.of(
                         sourceHandle1, exchange,

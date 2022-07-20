@@ -75,6 +75,7 @@ public class FileSystemExchange
     private final FileSystemExchangeStats stats;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
+    private final boolean preserveRecordsOrder;
     private final int fileListingParallelism;
     private final Optional<SecretKey> secretKey;
     private final ExecutorService executor;
@@ -98,6 +99,7 @@ public class FileSystemExchange
             FileSystemExchangeStats stats,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
+            boolean preserveRecordsOrder,
             int fileListingParallelism,
             Optional<SecretKey> secretKey,
             ExecutorService executor)
@@ -110,6 +112,8 @@ public class FileSystemExchange
         this.stats = requireNonNull(stats, "stats is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
+        this.preserveRecordsOrder = preserveRecordsOrder;
+
         this.fileListingParallelism = fileListingParallelism;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -145,7 +149,7 @@ public class FileSystemExchange
             throw new UncheckedIOException(e);
         }
 
-        return new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount);
+        return new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount, preserveRecordsOrder);
     }
 
     @Override
