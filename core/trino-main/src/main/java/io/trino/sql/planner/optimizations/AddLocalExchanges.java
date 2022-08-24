@@ -696,6 +696,9 @@ public class AddLocalExchanges
                         any().withOrderSensitivity(),
                         any().withOrderSensitivity());
             }
+            if (node.isHashPartitionedExchange()) {
+                return planAndEnforceChildren(node, fixedParallelism(), defaultParallelism(session));
+            }
             return planAndEnforceChildren(node, any(), defaultParallelism(session));
         }
 

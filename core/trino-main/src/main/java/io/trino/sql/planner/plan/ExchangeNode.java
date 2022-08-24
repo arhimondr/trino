@@ -248,4 +248,11 @@ public class ExchangeNode
     {
         return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs, orderingScheme);
     }
+
+    public boolean isHashPartitionedExchange()
+    {
+        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+        // catalog specific exchanges are hash partitioned exchanges with a catalog specific partition function
+        return partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.getCatalogHandle().isPresent();
+    }
 }
