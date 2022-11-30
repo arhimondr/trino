@@ -15,13 +15,4 @@ package io.trino.spi.connector;
 
 public interface ConnectorPartitioningHandle
 {
-    default boolean isSingleNode()
-    {
-        return false;
-    }
-
-    default boolean isCoordinatorOnly()
-    {
-        return false;
-    }
 }

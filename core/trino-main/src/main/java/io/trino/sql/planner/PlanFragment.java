@@ -40,6 +40,16 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class PlanFragment
 {
+//    SINGLE
+//
+//    MULTIPLE (Optional<PartitioningHandle>)
+//      SOURCE_1 -> {SINGLE|MULTIPLE_ARBITRARY|MULTIPLE_REPLICATED}
+//      SOURCE_2 -> {SINGLE|MULTIPLE_ARBITRARY|MULTIPLE_REPLICATED}
+
+    // ONCE, MANY
+    // SPLIT, NON_SPLIT
+
+
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;

@@ -30,12 +30,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.util.MoreLists.listOfListsCopy;
@@ -45,11 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeNode
         extends PlanNode
 {
-    public enum Type
+    public enum ReadSemantics
     {
-        GATHER,
-        REPARTITION,
-        REPLICATE
+        READ_ONCE,
+        READ_MANY
     }
 
     public enum Scope
@@ -58,10 +51,16 @@ public class ExchangeNode
         REMOTE
     }
 
-    private final Type type;
+    private final Distribution distribution;
     private final Scope scope;
 
     private final List<PlanNode> sources;
+
+    public enum SecondLevelPartitioning
+    {
+        SINGLE,
+        ARBITRARY
+    }
 
     private final PartitioningScheme partitioningScheme;
 
