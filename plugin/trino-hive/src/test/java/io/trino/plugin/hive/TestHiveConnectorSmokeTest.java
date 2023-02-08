@@ -13,10 +13,18 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.base.Joiner;
+import com.google.common.io.Files;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.util.List;
 
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,5 +103,26 @@ public class TestHiveConnectorSmokeTest
                         "WITH (\n" +
                         "   format = 'ORC'\n" +
                         ")");
+    }
+
+    @Test
+    public void test()
+            throws Exception
+    {
+        for (File file : new File("/home/andriirosa/projects/trino-verifier-queries/src/main/resources/queries/tpch/control/sf1000").listFiles()) {
+            String sql = new String(Files.toByteArray(file));
+            MaterializedResult result = getQueryRunner().execute(sql);
+            String query = file.getName().replace(".sql", "");
+            String filePath = "/home/andriirosa/projects/trino-verifier-queries/src/main/resources/queries/tpch_databricks/expected/" + query;
+            new File(filePath).delete();
+            try (FileWriter writer = new FileWriter(filePath)) {
+                for (MaterializedRow row : result.getMaterializedRows()) {
+                    List<String> strings = row.getFields().stream()
+                            .map(value -> value == null ? "NULL" : value.toString().trim())
+                            .toList();
+                    writer.append(Joiner.on("|").join(strings)).append("\n");
+                }
+            }
+        }
     }
 }
