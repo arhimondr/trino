@@ -13,12 +13,13 @@
  */
 package io.trino.parquet;
 
+import com.github.luben.zstd.RecyclingBufferPool;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.google.common.io.ByteStreams;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.format.CompressionCodec;
 
@@ -78,9 +79,15 @@ public final class ParquetCompressionUtils
     }
 
     private static Slice decompressZstd(Slice input, int uncompressedSize)
+            throws IOException
     {
         byte[] buffer = new byte[uncompressedSize];
-        decompress(new ZstdDecompressor(), input, 0, input.length(), buffer, 0);
+        try (ZstdInputStreamNoFinalizer decompressor = new ZstdInputStreamNoFinalizer(input.getInput(), RecyclingBufferPool.INSTANCE)) {
+            int bytesRead = ByteStreams.read(decompressor, buffer, 0, buffer.length);
+            if (bytesRead != uncompressedSize) {
+                throw new IllegalArgumentException(format("Invalid uncompressedSize for ZSTD input. Expected %s, actual: %s", uncompressedSize, bytesRead));
+            }
+        }
         return wrappedBuffer(buffer);
     }
 
