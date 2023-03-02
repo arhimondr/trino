@@ -14,7 +14,6 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.lz4.Lz4RawCompressor;
 import io.airlift.slice.Slice;
@@ -23,6 +22,8 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
+import net.jpountz.lz4.LZ4Factory;
+import net.jpountz.lz4.LZ4SafeDecompressor;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
@@ -69,7 +70,7 @@ public class PageDeserializer
         requireNonNull(encryptionKey, "encryptionKey is null");
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         input = new SerializedPageInput(
-                compressionEnabled ? Optional.of(new Lz4Decompressor()) : Optional.empty(),
+                compressionEnabled ? Optional.of(LZ4Factory.fastestInstance().safeDecompressor()) : Optional.empty(),
                 encryptionKey,
                 blockSizeInBytes);
     }
@@ -95,13 +96,13 @@ public class PageDeserializer
         private static final int DECOMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Decompressor.class).instanceSize());
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
 
-        private final Optional<Lz4Decompressor> decompressor;
+        private final Optional<LZ4SafeDecompressor> decompressor;
         private final Optional<SecretKey> encryptionKey;
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Lz4Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+        private SerializedPageInput(Optional<LZ4SafeDecompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
@@ -319,7 +320,7 @@ public class PageDeserializer
                 return;
             }
 
-            Decompressor decompressor = this.decompressor.get();
+            LZ4SafeDecompressor decompressor = this.decompressor.get();
 
             ReadBuffer source = buffers[1];
             ReadBuffer sink = buffers[0];
@@ -336,8 +337,7 @@ public class PageDeserializer
                         source.getSlice().byteArrayOffset() + source.getPosition(),
                         blockSize,
                         sink.getSlice().byteArray(),
-                        sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        sink.getSlice().length());
+                        sink.getSlice().byteArrayOffset() + bytesPreserved);
             }
             else {
                 System.arraycopy(

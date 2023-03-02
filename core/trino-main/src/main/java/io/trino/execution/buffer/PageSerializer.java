@@ -14,7 +14,6 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4RawCompressor;
 import io.airlift.slice.Slice;
@@ -23,6 +22,8 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
@@ -73,7 +74,7 @@ public class PageSerializer
         requireNonNull(encryptionKey, "encryptionKey is null");
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         output = new SerializedPageOutput(
-                compressionEnabled ? Optional.of(new Lz4Compressor()) : Optional.empty(),
+                compressionEnabled ? Optional.of(LZ4Factory.fastestInstance().fastCompressor()) : Optional.empty(),
                 encryptionKey,
                 blockSizeInBytes);
     }
@@ -100,7 +101,7 @@ public class PageSerializer
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
-        private final Optional<Lz4Compressor> compressor;
+        private final Optional<LZ4Compressor> compressor;
         private final Optional<SecretKey> encryptionKey;
         private final int markers;
         private final Optional<Cipher> cipher;
@@ -109,7 +110,7 @@ public class PageSerializer
         private int uncompressedSize;
 
         private SerializedPageOutput(
-                Optional<Lz4Compressor> compressor,
+                Optional<LZ4Compressor> compressor,
                 Optional<SecretKey> encryptionKey,
                 int blockSizeInBytes)
         {
@@ -287,7 +288,7 @@ public class PageSerializer
             if (this.compressor.isEmpty()) {
                 return;
             }
-            Compressor compressor = this.compressor.get();
+            LZ4Compressor compressor = this.compressor.get();
 
             WriteBuffer sourceBuffer = buffers[0];
             WriteBuffer sinkBuffer = buffers[1];
