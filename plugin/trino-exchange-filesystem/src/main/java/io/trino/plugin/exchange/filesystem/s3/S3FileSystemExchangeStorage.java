@@ -468,6 +468,7 @@ public class S3FileSystemExchangeStorage
                 .overrideConfiguration(overrideConfig)
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(isS3PathStyleAccess)
+                        .checksumValidationEnabled(false)
                         .build())
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
